@@ -28,12 +28,13 @@ input[type=range]{accent-color:var(--acc);width:100%;min-width:0;margin:0}
 dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;width:min(640px,92vw)}
 textarea{width:100%;height:300px;background:var(--bg);border:1px solid var(--line);font:12px monospace}
 small{color:var(--mute)}
+#rl{max-height:55vh;overflow:auto;margin:8px 0}.rr{display:grid;grid-template-columns:1fr 1.4fr 28px;gap:6px;margin-bottom:3px;align-items:center}.rr input{width:100%}.rr.chg input{border-color:var(--acc)}.rr span{overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
 @media(max-width:700px){main{flex-direction:column}aside{width:100%;max-height:45vh;border-right:0}}
 </style></head><body>
 <header>
   <h1>🍪 susenkovDev-editor</h1>
   <span>Map editor for susenkov game</span>
-  <div class="row" style="align-items:center"><button id="bPre" class="on" title="Select the .prefab together with its .meta, model (.fbx/.obj/.glb), .mat and texture files">⬆ Import prefab</button><button id="bFold" title="Pick a whole Unity folder (e.g. Assets/Prefabs)">Folder…</button><label style="gap:4px">Scale<input type="number" id="iscl" value="1" step="0.01" min="0.001" style="width:70px"></label><button id="bClrImp">Clear imported</button><small id="stat"></small></div>
+  <div class="row" style="align-items:center"><button id="bPre" class="on" title="Select the .prefab together with its .meta, model (.fbx/.obj/.glb), .mat and texture files">⬆ Import prefab</button><button id="bFold" title="Pick a whole Unity folder (e.g. Assets/Prefabs)">Folder…</button><label style="gap:4px">Scale<input type="number" id="iscl" value="1" step="0.01" min="0.001" style="width:70px"></label><button id="bClrImp">Clear imported</button><button id="bRen" class="on">✎ Rename</button><small id="stat"></small></div>
   <input type="file" id="fIn" multiple hidden><input type="file" id="fDir" webkitdirectory hidden>
   <div class="row" style="margin-left:auto"><button id="bImp">Import</button><button id="bExp" class="on">Export JSON</button></div>
 </header>
@@ -68,6 +69,12 @@ small{color:var(--mute)}
 <small><b>WASD / Q E</b> = Pohyb po mapě<br><b>Pravé tlačítko</b> = Otáčení kamery<br><b>Levé tlačítko</b> = Pokládání / Výběr / Úprava objektu<br>R = Otáčení objektů (Shift+R o 90°)<br>Ctrl+D = Duplikovat, Delete = Smazat</small>
 <div class="row"><button id="bClr">Clear map</button><button id="bHome">Reset view</button></div>
 </aside><canvas id="cv"></canvas></main>
+<dialog id="dRen"><h2>Rename prefabs (names used in the Unity export)</h2>
+<div class="row"><input type="text" id="rF" placeholder="filter…" style="flex:1;min-width:90px"><input type="text" id="rFind" placeholder="find" style="width:90px"><input type="text" id="rRep" placeholder="replace with" style="width:100px"><button id="rAll">Replace in all</button></div>
+<div id="rl"></div>
+<div class="row"><button id="rExp">Export names</button><button id="rImp">Import names</button><button id="rRst">Reset all</button><button id="rClose" class="on">Close</button></div>
+<small>Type a name, press <b>Enter</b> to save and jump to the next one. Names are saved automatically in this browser and kept after reloads. Use Export to keep a backup file.</small>
+<input type="file" id="rFile" accept=".json" hidden></dialog>
 <dialog id="dlg"><h2 id="dt">JSON</h2><textarea id="ta" spellcheck="false"></textarea>
 <div class="row" style="margin-top:8px"><button id="dGo" class="on">Copy</button><button id="dClose">Close</button></div></dialog>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -324,7 +331,7 @@ $("objs").onclick=e=>{const k=e.target.dataset.k;if(!k)return;otype=k;mode="plac
 function curType(){return sel&&sel.t==="o"&&mode==="select"&&S.objs[sel.i]?S.objs[sel.i].t:otype}
 function setGhost(){if(ghost)scene.remove(ghost);ghost=build(D[otype]);ghost.traverse(o=>{if(o.material){const f=m=>{m=m.clone();m.transparent=true;m.opacity=.5;return m};o.material=Array.isArray(o.material)?o.material.map(f):f(o.material)}});ghost.visible=false;scene.add(ghost)}
 $("iu").onchange=e=>{const d=D[curType()];if(!d)return;d.u=e.target.value.trim()||d.n;saveU()};
-function saveU(){const u={};for(const n in D)if(D[n].u!==n)u[n]=D[n].u;try{localStorage.setItem("sdevU",JSON.stringify(u))}catch(e){}}
+function saveU(){for(const n in D){if(D[n].u!==n)U0[n]=D[n].u;else delete U0[n]}try{localStorage.setItem("sdevU",JSON.stringify(U0))}catch(e){}}
 for(const[id,f]of[["iw",(s,v)=>s.w=Math.max(.1,v||1)],["is",(s,v)=>s.s=Math.max(0,v||0)]])$(id).onchange=e=>{const s=sp();if(s){f(s,+e.target.value);paint()}};
 $("ic").onchange=e=>{const s=sp();if(s){s.closed=e.target.checked;paint()}};
 
@@ -590,7 +597,7 @@ async function processAll(files,fresh){
 
 function register(name,group){const o=D[name];
  if(o&&!bak.has(name)&&!imported.includes(name))bak.set(name,o);
- D[name]={n:name,cat:o?o.cat:"Imported",s:"model",col:"#ffffff",a:1,b:1,c:1,u:o?o.u:name,model:group};
+ D[name]={n:name,cat:o?o.cat:"Imported",s:"model",col:"#ffffff",a:1,b:1,c:1,u:o?o.u:(U0[name]||name),model:group};
  imported.push(name);delete proto[name]}
 function restore(){imported.forEach(n=>{if(bak.has(n))D[n]=bak.get(n);else delete D[n];delete proto[n]});imported=[];bak.clear();bcache.clear()}
 
@@ -612,5 +619,35 @@ el("bClrImp").onclick=async()=>{if(!confirm("Remove all imported prefabs/models 
  try{await dbClear()}catch(e){}lastFiles=new Map();stat("");renderPalette();setGhost();paint()};
 stat("Select .prefab + .meta + model/.mat/texture files together (or drop them here)");
 dbAll().then(m=>{if(m.size)processAll(m,false)}).catch(()=>{});
+})();
+</script>
+<script>
+// ===== fast rename panel =====
+(()=>{
+const dlg=$("dRen"),list=$("rl");
+function build(){const q=$("rF").value.trim().toLowerCase();list.innerHTML="";
+ [...new Set(Object.values(D).map(d=>d.cat))].forEach(c=>{
+  const ds=Object.values(D).filter(d=>d.cat===c&&(!q||d.n.toLowerCase().includes(q)||d.u.toLowerCase().includes(q)));
+  if(!ds.length)return;
+  const h=document.createElement("h2");h.textContent=c;list.appendChild(h);
+  ds.forEach(d=>{
+   const r=document.createElement("div"),l=document.createElement("span"),i=document.createElement("input"),x=document.createElement("button");
+   r.className="rr"+(d.u!==d.n?" chg":"");l.textContent=d.n;l.title=d.n;i.type="text";i.value=d.u;x.textContent="↺";x.title="Reset to "+d.n;
+   const commit=()=>{d.u=i.value.trim()||d.n;i.value=d.u;r.classList.toggle("chg",d.u!==d.n);saveU();paint()};
+   i.onchange=commit;
+   i.onkeydown=e=>{if(e.key==="Enter"){commit();const all=[...list.querySelectorAll("input")],n=all[all.indexOf(i)+1];if(n){n.focus();n.select()}}};
+   x.onclick=()=>{i.value=d.n;commit()};
+   r.append(l,i,x);list.appendChild(r)})})}
+$("bRen").onclick=()=>{$("rF").value="";build();dlg.showModal()};
+$("rClose").onclick=()=>dlg.close();
+$("rF").oninput=build;
+$("rAll").onclick=()=>{const f=$("rFind").value,r=$("rRep").value;if(!f)return;
+ Object.values(D).forEach(d=>{if(d.u.includes(f))d.u=d.u.split(f).join(r)||d.n});saveU();paint();build()};
+$("rRst").onclick=()=>{if(!confirm("Reset ALL names to the editor defaults?"))return;
+ Object.keys(U0).forEach(k=>delete U0[k]);Object.values(D).forEach(d=>d.u=d.n);saveU();paint();build()};
+$("rExp").onclick=()=>{saveU();const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(U0,null,1)],{type:"application/json"}));a.download="susenkov-names.json";a.click()};
+$("rImp").onclick=()=>$("rFile").click();
+$("rFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
+ try{const o=JSON.parse(await f.text());for(const k in o)if(typeof o[k]==="string"){U0[k]=o[k];if(D[k])D[k].u=o[k]}saveU();paint();build()}catch(err){alert("Invalid names file.")}};
 })();
 </script></body></html>
