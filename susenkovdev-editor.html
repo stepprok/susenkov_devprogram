@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>susenkovDev-editor</title>
+<style>
+:root{--bg:#eef0ea;--panel:#fbfbf8;--ink:#23272b;--mute:#68717a;--line:#d5d9d0;--acc:#e0a000;--accink:#1c1c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181b;--panel:#1e2327;--ink:#e6e9ec;--mute:#8d97a1;--line:#323a41;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15181b;--panel:#1e2327;--ink:#e6e9ec;--mute:#8d97a1;--line:#323a41;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.4 "Barlow Semi Condensed","Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column}
+h1{font-size:22px;margin:0;display:flex;align-items:center;gap:8px}header{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:3px solid var(--acc);flex-wrap:wrap}header span{color:var(--mute)}
+main{flex:1;display:flex;min-height:0}
+aside{width:290px;background:var(--panel);border-right:1px solid var(--line);padding:12px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+#cv{flex:1;min-width:0;display:block;touch-action:none}
+h2{font-size:13px;margin:8px 0 4px;color:var(--mute);font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:5px}
+button,input,textarea,select{font:inherit;color:var(--ink)}
+button{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px 8px;cursor:pointer}
+button:hover{border-color:var(--acc)}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--acc)}
+button.on{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:600}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px}
+input[type=number],input[type=text]{width:100px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px}
+select{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px}
+input[type=range]{accent-color:var(--acc);width:100%;min-width:0;margin:0}
+.fld{display:grid;grid-template-columns:92px 1fr 64px;gap:6px;align-items:center;margin-bottom:3px}
+.fld input[type=number]{width:64px}
+#xf{margin:6px 0}
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;width:min(640px,92vw)}
+textarea{width:100%;height:300px;background:var(--bg);border:1px solid var(--line);font:12px monospace}
+small{color:var(--mute)}
+@media(max-width:700px){main{flex-direction:column}aside{width:100%;max-height:45vh;border-right:0}}
+</style></head><body>
+<header>
+  <h1>🍪 susenkovDev-editor</h1>
+  <span>Map editor for susenkov game</span>
+  <div class="row" style="margin-left:auto"><button id="bImp">Import</button><button id="bExp" class="on">Export JSON</button></div>
+</header>
+<main><aside>
+<div><h2>Tool</h2><div class="row" id="tools"></div></div>
+<label>Snap (m)<input type="number" id="snap" value="0" min="0" step="1"></label>
+<div id="pSpline"><h2>Spline type</h2><div class="row" id="kinds"></div><button id="bFin" style="margin-top:6px">Finish spline (Enter)</button></div>
+<div id="pSel"><h2>Selected spline</h2>
+<label>Width (m)<input type="number" id="iw" step="0.5" min="0.1"></label>
+<label>Spacing (m)<input type="number" id="is" step="0.5" min="0"></label>
+<label>Closed loop<input type="checkbox" id="ic"></label>
+<button id="bDesel" style="margin-top:6px">Deselect (Esc)</button></div>
+
+<div id="pTer"><h2>Terrain brush</h2>
+<div class="row" id="tmode"></div>
+<div id="tf" style="margin:6px 0"></div>
+<small>Hold the left mouse button to paint. <b>Width</b> = brush diameter, <b>Set height</b> = the height (Z/up value) the brush pulls the ground to. <b>Shift</b> = invert Raise/Lower. <b>Alt+click</b> = copy the ground height under the cursor into "Set height".</small>
+<div class="row" style="margin-top:6px"><button id="bTerFlat">Fill all tiles to set height</button><button id="bTerClr">Reset terrain</button></div></div>
+<div id="pTile"><h2>Tiles</h2>
+<div class="row" id="tact"></div>
+<small>The camera flies up and looks straight down. <b>Add</b>: click a green + slot on the left / right / top / bottom of a tile to attach a new tile. <b>Remove</b>: click an empty tile to delete it. When you switch to another tool, the camera flies down to the newest tile.</small></div>
+<div id="pGo"><h2>Go to tile</h2><div class="row" id="tlist"></div></div>
+<div id="pXf"><h2>Selected object</h2>
+<div id="actsWrap"><div class="row" id="acts"></div>
+<small>Drag in the viewport: <b>Move</b> = along ground, <b>Lift</b> = up/down, <b>Yaw / Roll / Bend</b> = left/right, <b>Pitch</b> = up/down. Hold Shift = 15° steps.</small></div>
+<div id="xf"></div>
+<label>Bend axis<select id="ibm"><option value="h">Height (lean / curve up)</option><option value="l">Length (turn, e.g. roads)</option></select></label>
+<div class="row" style="margin-top:6px"><button id="bDup">Duplicate</button><button id="bDel">Delete</button><button id="bRst">Reset tilt/bend</button></div>
+</div>
+
+<div id="pObj"><h2>Unity prefab name</h2><input type="text" id="iu" style="width:100%"><small>Rename if your prefab name differs.</small><div id="objs"></div></div>
+<small><b>WASD / Q E</b> = Pohyb po mapě<br><b>Pravé tlačítko</b> = Otáčení kamery<br><b>Levé tlačítko</b> = Pokládání / Výběr / Úprava objektu<br>R = Otáčení objektů (Shift+R o 90°)<br>Ctrl+D = Duplikovat, Delete = Smazat</small>
+<div class="row"><button id="bClr">Clear map</button><button id="bHome">Reset view</button></div>
+</aside><canvas id="cv"></canvas></main>
+<dialog id="dlg"><h2 id="dt">JSON</h2><textarea id="ta" spellcheck="false"></textarea>
+<div class="row" style="margin-top:8px"><button id="dGo" class="on">Copy</button><button id="dClose">Close</button></div></dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const G=THREE,$=i=>document.getElementById(i),cv=$("cv"),D2R=Math.PI/180;
+const K={road:{n:"Road",c:"#3a3d42",w:6,o:null,s:0,y:.05},walk:{n:"Sidewalk",c:"#a7abb0",w:3,o:null,s:0,y:.07},river:{n:"River",c:"#3d8fd1",w:6,o:null,s:0,y:.04},tree:{n:"Palm line",c:"#3f8a46",w:.3,o:"Palm_03",s:6},fence:{n:"Fence",c:"#9c6b3b",w:.3,o:"Fence",s:1.6},lamp:{n:"Spotlight line",c:"#e5b93a",w:.3,o:"Spotlight_01",s:14}};
+const D={},CATS=[];
+function add(cat,l){CATS.push(cat);l.forEach(([n,s,col,a,b,c])=>D[n]={n,cat,s,col,a:a??1,b:b??1,c:c??1,u:n})}
+add("Game",[["Stall","stop","#d96a2b",3,2.6,2],["Machine","box","#3b4a7a",2,2.6,2],["Crate","box","#a47b45",1,1,1],["Fence","box","#9c6b3b",1.6,1.1,.15]]);
+add("Roads",["001","003","009","013","019","020","022"].map(i=>["road_"+i,"tile","#3a3d42",10,.1,10]));
+add("Sidewalks",[1,2,3,4,5].map(i=>["Set_B_Tile_0"+i,"tile","#a7abb0",6,.2,6]));
+add("Buildings",[["Eco_Building_Tower","tower","#3f6fa8",10,36],["Eco_Building_Grid","tower","#c77a3a",9,28],["Eco_Building_Slope","terrace","#7a8f6a",16,14],["Eco_Building_Terrace","terrace","#6f9a62",14,12],["Eco_Building_Block","tower","#d98a3a",8,22],["Regular_Building_Twist","twist","#2f4f8f",9,40],["Regular_Building_Tall","tower","#c98a3a",8,40]]);
+add("Vegetation",[["Bush_06","pot","#3f8a46"],["Bush_07","pot","#4a9a4a"],["Bush_10","box","#4f8a2f",3,1.5,1.5],["Palm_03","palm","#7a5a36"]]);
+add("Cars",[["Car_06","car","#5a7388",4.2,1.2,1.9],["Car_13","car","#c2552b",4.2,1.1,1.9],["Car_16","car","#b8b32c",4,1.1,1.9],["Car_19","car","#d7683a",3.6,1.2,1.7],["Futuristic_Car","car","#9fb8c8",4.6,1.2,2],["Van","car","#7d8790",5,2.2,2.1]]);
+add("Props",[["Bus_Stop","stop","#8fb0c0",4,2.6,1.5],["Fountain","fountain","#c98a5a",3],["Graffiti_03","graf","#8a8f95",3,2.5],["Spotlight_01","pole","#444",7],["Spotlight_02","pole","#e5b93a",6],["traffic_light_01","tl","#333",5.5],["traffic_light_02","tl","#333",5.5],["traffic_light_03","tl","#333",5.5],["Trash_02","bin","#d9a21f"],["Trash_03","bin","#c4342d"],["Trash_04","bin","#2f64c4"],["Trash_05","bin","#3f9a3f"],["Trash_06","box","#6a6f78",1.8,1.2,.4],["Trash_Can_01","box","#3f7a4a",1.2,1,.8],["Trash_Can_02","box","#c0642b",1.2,1,.8],["Trash_Can_03","bin","#555"],["Trash_Can_04","bin","#6a6a6a"]]);
+add("Billboards",[["Billboard_01","bill","#3f7fd1",5,3],["Billboard_02","bill","#4fa05a",5,3],["Billboard_03","bill","#59b0b0",7,2],["Billboard_04","bill","#e8e8f0",6,1.6],["Billboard_05","bill","#eeeeee",6,2.2],["Billboard_06","bill","#e040c8",6,1.4],["Signboard_01","bill","#4a3a7a",1.5,3.5]]);
+const U0={};try{Object.assign(U0,JSON.parse(localStorage.getItem("sdevU")||"{}"))}catch(e){}
+for(const n in U0)if(D[n])D[n].u=U0[n];
+// shapes (extra segments so objects can be bent smoothly)
+const seg=v=>Math.min(24,Math.max(1,Math.ceil(v/1.5)));
+const M=(geo,col,x,y,z,g)=>{const m=new G.Mesh(geo,new G.MeshLambertMaterial({color:col}));m.position.set(x,y,z);g.add(m);return m},
+ Bx=(w,h,d)=>new G.BoxGeometry(w,h,d,seg(w),seg(h),seg(d)),
+ Cy=(r,h,r2)=>new G.CylinderGeometry(r,r2??r,h,14,seg(h));
+function build(d){const g=new G.Group(),{s,col,a,b,c}=d;
+ if(s==="box")M(Bx(a,b,c),col,0,b/2,0,g);
+ else if(s==="tile"){M(Bx(a,b,c),col,0,b/2,0,g);if(d.cat==="Roads")M(Bx(.3,.02,c*.8),"#e8e0b0",0,b+.01,0,g)}
+ else if(s==="tower"){M(Bx(a,b,a),col,0,b/2,0,g);for(let i=1;i<6;i++)M(Bx(a+.1,b*.04,a+.1),"#ffd27a",0,b*i/6,0,g)}
+ else if(s==="terrace")for(let i=0;i<4;i++){const h=b/4;M(Bx(a*(1-i*.2),h,a*(1-i*.2)),col,i*a*.05,i*h+h/2,0,g)}
+ else if(s==="twist")for(let i=0;i<8;i++){const h=b/8,m=M(Bx(a*(1-i*.04),h,a*(1-i*.04)),i%2?"#ff9a3c":col,0,i*h+h/2,0,g);m.rotation.y=i*.2}
+ else if(s==="pot"){M(Cy(.6,.6,.45),"#9aa0a6",0,.3,0,g);M(new G.SphereGeometry(.85,14,10),col,0,1.1,0,g)}
+ else if(s==="palm"){M(Cy(.12,6,.2),col,0,3,0,g);for(let i=0;i<6;i++){const l=M(Bx(3,.08,.6),"#3f8a46",0,6,0,g);l.rotation.y=i*1.047;l.position.set(Math.sin(i*1.047)*1.3,5.9,Math.cos(i*1.047)*1.3);l.rotation.x=.4}}
+ else if(s==="car"){M(Bx(a,b*.55,c),col,0,b*.45,0,g);M(Bx(a*.5,b*.5,c*.85),"#cfe6f5",-a*.05,b*.95,0,g);for(const x of[-1,1])for(const z of[-1,1]){const w=M(Cy(.35,.3),"#111",x*a*.32,.35,z*c*.5,g);w.rotation.x=1.57}}
+ else if(s==="bill"){for(const x of[-1,1])M(Cy(.12,b+1.5),"#444",x*a*.35,(b+1.5)/2,0,g);M(Bx(a,b,.15),col,0,1.5+b/2,0,g)}
+ else if(s==="pole"){M(Cy(.08,a,.12),"#555",0,a/2,0,g);M(Bx(.9,.25,.3),col,.4,a,0,g)}
+ else if(s==="tl"){M(Cy(.08,a,.12),"#333",0,a/2,0,g);M(Bx(.4,1.1,.3),"#222",0,a-.4,0,g);["#e33","#ee3","#3c5"].forEach((cc,i)=>M(new G.SphereGeometry(.12,8,6),cc,0,a-.1-i*.3,.16,g))}
+ else if(s==="bin"){M(Cy(.4,.9,.35),col,0,.45,0,g);M(Cy(.43,.1),"#222",0,.95,0,g)}
+ else if(s==="fountain"){M(Cy(a,.5,a*1.1),col,0,.25,0,g);M(Cy(a*.8,.15),"#4aa3d8",0,.55,0,g);M(Cy(.2,1.4),col,0,1.2,0,g);M(new G.SphereGeometry(.4,10,8),"#4aa3d8",0,2,0,g)}
+ else if(s==="stop"){for(const x of[-1,1])M(Cy(.08,b),"#444",x*a*.45,b/2,0,g);M(Bx(a,.15,c),col,0,b,0,g);M(Bx(a*.9,b*.6,.05),"#bcd8e6",0,b*.45,-c*.4,g)}
+ else if(s==="graf")M(Bx(a,b,.1),col,0,b/2+.2,0,g);
+ return g}
+const proto={};const inst=n=>(proto[n]||(proto[n]=build(D[n]))).clone();
+
+// bending: bakes mesh transforms into geometry, then curves the vertices along an arc
+function bendGroup(g,deg,dir,mode){
+ const meshes=[];g.traverse(m=>{if(m.isMesh)meshes.push(m)});
+ const box=new G.Box3();
+ meshes.forEach(m=>{m.updateMatrix();const ge=m.geometry.clone();ge.applyMatrix4(m.matrix);m.geometry=ge;m.position.set(0,0,0);m.rotation.set(0,0,0);m.scale.set(1,1,1);m.updateMatrix();ge.computeBoundingBox();box.union(ge.boundingBox)});
+ const H=mode!=="l",B=deg*D2R,a=dir*D2R,ca=Math.cos(a),sa=Math.sin(a);
+ const len=Math.max(H?box.max.y-box.min.y:box.max.x-box.min.x,.5),R=len/B,base=box.min.y,cx=(box.min.x+box.max.x)/2;
+ meshes.forEach(m=>{const ge=m.geometry,pos=ge.attributes.position;
+  for(let i=0;i<pos.count;i++){let x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+   if(H){const xr=x*ca+z*sa,zr=-x*sa+z*ca,s=y-base,nx=R-(R-xr)*Math.cos(s/R);y=base+(R-xr)*Math.sin(s/R);x=nx*ca-zr*sa;z=nx*sa+zr*ca}
+   else{const s=x-cx,nz=R-(R-z)*Math.cos(s/R);x=cx+(R-z)*Math.sin(s/R);z=nz}
+   pos.setXYZ(i,x,y,z)}
+  pos.needsUpdate=true;ge.computeVertexNormals();ge.computeBoundingSphere();ge.computeBoundingBox()});
+ return g}
+const bcache=new Map();
+function bendInst(o){
+ if(!o.bend)return inst(o.t);
+ const key=[o.t,o.bend,o.bd||0,o.bm||"h"].join("|");let p=bcache.get(key);
+ if(!p){if(bcache.size>150){bcache.forEach(v=>v.traverse(m=>{if(m.isMesh)m.geometry.dispose()}));bcache.clear()}
+  p=bendGroup(build(D[o.t]),o.bend,o.bd||0,o.bm||"h");bcache.set(key,p)}
+ return p.clone()}
+
+// scene
+const ren=new G.WebGLRenderer({canvas:cv,antialias:true}),scene=new G.Scene(),cam=new G.PerspectiveCamera(50,1,1,40000);
+scene.background=new G.Color("#9ec9e8");scene.add(new G.AmbientLight(0xffffff,.75));const sun=new G.DirectionalLight(0xffffff,.7);sun.position.set(40,80,30);scene.add(sun);
+const TS=600,CS=5,NV=TS/CS; // tile size (m), terrain cell size (m), cells per tile side
+const ground=new G.Mesh(new G.PlaneGeometry(1e5,1e5),new G.MeshBasicMaterial());ground.rotation.x=-Math.PI/2;ground.visible=false;scene.add(ground); // invisible pick plane
+const groundMat=new G.MeshLambertMaterial({color:"#7fb069"});
+const gS=new G.Group(),gP=new G.Group(),gO=new G.Group(),gT=new G.Group(),gSl=new G.Group();scene.add(gS,gP,gO,gT,gSl);
+
+// Ovládání kamery
+const ctl=new G.OrbitControls(cam,cv);
+ctl.mouseButtons = {
+    LEFT: -1,               // Levé tlačítko je rezervováno pro kreslení / umisťování
+    MIDDLE: G.MOUSE.DOLLY,  // Kolečko zoomuje
+    RIGHT: G.MOUSE.ROTATE   // Pravé tlačítko rotuje
+};
+ctl.maxPolarAngle=1.5;
+
+// WASD Logika pohybu
+const keysPressed = {};
+addEventListener("keydown", e => {
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+    if (e.ctrlKey || e.metaKey) return;
+    keysPressed[e.key.toLowerCase()] = true;
+});
+addEventListener("keyup", e => {
+    keysPressed[e.key.toLowerCase()] = false;
+});
+addEventListener("blur", () => { for (const k in keysPressed) keysPressed[k] = false; });
+
+function updateWASDMovement() {
+    const moveSpeed = 1.2;
+    const forward = new G.Vector3();
+    cam.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    const side = new G.Vector3();
+    side.crossVectors(forward, cam.up).normalize();
+
+    const moveVector = new G.Vector3();
+
+    if (keysPressed['w']) moveVector.addScaledVector(forward, moveSpeed);
+    if (keysPressed['s']) moveVector.addScaledVector(forward, -moveSpeed);
+    if (keysPressed['a']) moveVector.addScaledVector(side, -moveSpeed);
+    if (keysPressed['d']) moveVector.addScaledVector(side, moveSpeed);
+    if (keysPressed['q']) moveVector.y -= moveSpeed * 0.5;
+    if (keysPressed['e']) moveVector.y += moveSpeed * 0.5;
+
+    if (moveVector.lengthSq() > 0) {
+        cam.position.add(moveVector);
+        ctl.target.add(moveVector);
+    }
+}
+
+function home(){cam.position.set(0,70,60);ctl.target.set(0,0,0);ctl.update()}
+function fit(){const r=cv.getBoundingClientRect();ren.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix()}
+
+let fly=null,brushDown=false,brushPos=null,lastT=0,lastRB=0;
+function flyTo(pos,tgt,ms=800){fly={p0:cam.position.clone(),t0:ctl.target.clone(),p1:pos,t1:tgt,s:performance.now(),ms}}
+(function loop(){
+    requestAnimationFrame(loop);
+    if(fly){const k=Math.min(1,(performance.now()-fly.s)/fly.ms),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;cam.position.lerpVectors(fly.p0,fly.p1,e);ctl.target.lerpVectors(fly.t0,fly.t1,e);if(k>=1)fly=null}
+    if(brushDown&&mode==="terrain"&&brushPos){const now=performance.now(),dt=Math.min(.05,(now-lastT)/1000);lastT=now;applyBrush(dt,!!keysPressed.shift)}
+    updateWASDMovement();
+    ctl.update();
+    ren.render(scene,cam);
+})();
+
+// state
+let S={splines:[],objs:[],tiles:[{x:0,z:0}],hm:{}},tileAct="add",lastTile=null,camBefore=null,mode="spline",kind="road",otype="Palm_03",cur=null,sel=null,drag=null,placeRot=0,ghost=null,pv=null,act="move";
+const sp=()=>sel&&sel.t==="p"?S.splines[sel.s]:null,ob=()=>sel&&sel.t==="o"?S.objs[sel.i]||null:null,snapV=()=>+$("snap").value||0,sn=v=>snapV()?Math.round(v/snapV())*snapV():v;
+const newObj=(t,x,z,rot)=>({t,x,z,y:0,rot,pt:0,rl:0,sc:1,bend:0,bd:0,bm:"h"});
+function norm(){if(!S.tiles||!S.tiles.length)S.tiles=[{x:0,z:0}];if(!S.hm)S.hm={};S.objs.forEach(o=>{o.y=o.y||0;o.pt=o.pt||0;o.rl=o.rl||0;o.bend=o.bend||0;o.bd=o.bd||0;o.bm=o.bm||"h";o.sc=o.sc||1})}
+const save=()=>{try{localStorage.setItem("sdev",JSON.stringify(S))}catch(e){}};
+
+// terrain: global height grid, one vertex every CS metres; sparse map "i,j" -> height (m)
+const hk=(i,j)=>i+","+j,hget=(i,j)=>S.hm[hk(i,j)]||0;
+function setH(i,j,h){h=Math.max(-200,Math.min(400,h));if(Math.abs(h)<.001)delete S.hm[hk(i,j)];else S.hm[hk(i,j)]=+h.toFixed(3)}
+// same triangulation as the terrain mesh (diagonal b-c), so objects sit exactly on the surface
+function hAt(x,z){const fx=x/CS,fz=z/CS,i=Math.floor(fx),j=Math.floor(fz),u=fx-i,v=fz-j,a=hget(i,j),b=hget(i+1,j),c=hget(i,j+1),d=hget(i+1,j+1);
+ return u+v<=1?a+(b-a)*u+(c-a)*v:d+(c-d)*(1-u)+(b-d)*(1-v)}
+
+// geometry
+function poly(p,closed){const n=p.length;if(n<3&&!closed||n<2)return p.slice();const g=j=>closed?p[(j+n)%n]:p[Math.max(0,Math.min(n-1,j))],o=[],m=closed?n:n-1;
+ for(let i=0;i<m;i++){const a=g(i-1),b=g(i),c=g(i+1),d=g(i+2);for(let k=0;k<16;k++){const t=k/16,t2=t*t,t3=t2*t;o.push([0,1].map(q=>.5*(2*b[q]+(-a[q]+c[q])*t+(2*a[q]-5*b[q]+4*c[q]-d[q])*t2+(-a[q]+3*b[q]-3*c[q]+d[q])*t3)))}}
+ o.push(closed?o[0]:p[n-1]);return o}
+function along(pl,sp){const r=[];if(sp<=0||pl.length<2)return r;let acc=sp/2;for(let i=0;i<pl.length-1;i++){const a=pl[i],b=pl[i+1],dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz);let pos=0;
+ while(L-pos>=acc){pos+=acc;r.push({x:a[0]+dx*pos/L,z:a[1]+dz*pos/L,rot:Math.atan2(dx,dz)});acc=sp}acc-=L-pos}return r}
+function ribbon(pl,w,col,y){const v=[],ix=[];pl.forEach((p,i)=>{const a=pl[Math.max(0,i-1)],b=pl[Math.min(pl.length-1,i+1)];let dx=b[0]-a[0],dz=b[1]-a[1];const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;
+ const x1=p[0]-dz*w/2,z1=p[1]+dx*w/2,x2=p[0]+dz*w/2,z2=p[1]-dx*w/2;v.push(x1,y+.05+hAt(x1,z1),z1,x2,y+.05+hAt(x2,z2),z2);if(i)ix.push(2*i-2,2*i-1,2*i,2*i-1,2*i+1,2*i)});
+ const geo=new G.BufferGeometry();geo.setAttribute("position",new G.Float32BufferAttribute(v,3));geo.setIndex(ix);geo.computeVertexNormals();
+ return new G.Mesh(geo,new G.MeshLambertMaterial({color:col,side:G.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}))}
+function rad(g){const s=new G.Box3().setFromObject(g).getSize(new G.Vector3());return Math.max(s.x,s.z)/2}
+function place(g,x,z,rot,sc){g.position.set(x,hAt(x,z),z);g.rotation.y=rot;g.scale.setScalar(sc)}
+function mkObj(o){const g=bendInst(o);g.position.set(o.x,(o.y||0)+hAt(o.x,o.z),o.z);g.rotation.set((o.pt||0)*D2R,o.rot,(o.rl||0)*D2R,"YXZ");g.scale.setScalar(o.sc);return g}
+const noRay=m=>{m.raycast=()=>{}};
+function rebuild(){[gS,gP,gO].forEach(g=>{while(g.children.length)g.remove(g.children[0])});
+ S.splines.forEach((s,si)=>{const k=K[s.k],pl=poly(s.pts,s.closed);if(pl.length>1)gS.add(ribbon(pl,k.o?.25:s.w,k.c,k.y||.06));
+  if(k.o)along(pl,s.s).forEach(a=>{const o=inst(k.o);place(o,a.x,a.z,a.rot,1);gS.add(o)});
+  s.pts.forEach((p,i)=>{const m=new G.Mesh(new G.SphereGeometry(.9,10,8),new G.MeshBasicMaterial({color:sel&&sel.t==="p"&&sel.s===si&&sel.i===i?"#e0a000":"#ffffff"}));m.position.set(p[0],hAt(p[0],p[1])+1,p[1]);m.userData={t:"p",s:si,i};gP.add(m)})});
+ S.objs.forEach((o,i)=>{const g=mkObj(o);g.userData={t:"o",i};gO.add(g);
+  if(sel&&sel.t==="o"&&sel.i===i){const r=rad(g)+.6,ring=new G.Mesh(new G.RingGeometry(r,r+.4,32),new G.MeshBasicMaterial({color:"#e0a000",side:G.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(o.x,hAt(o.x,o.z)+.15,o.z);noRay(ring);gP.add(ring);
+   g.updateMatrixWorld(true);const bh=new G.BoxHelper(g,0xe0a000);noRay(bh);gP.add(bh)}})}
+
+// tiles
+const tileMeshes=[],slotMeshes=[];
+const slotMat=new G.MeshBasicMaterial({color:"#2ecc71",transparent:true,opacity:.22,depthWrite:false,side:G.DoubleSide}),barMat=new G.MeshBasicMaterial({color:"#ffffff"});
+const hl=new G.Mesh(new G.PlaneGeometry(TS,TS),new G.MeshBasicMaterial({color:"#2ecc71",transparent:true,opacity:.45,depthWrite:false,side:G.DoubleSide}));hl.rotation.x=-Math.PI/2;hl.visible=false;noRay(hl);scene.add(hl);
+function tileGeo(t){const n=NV+1,pos=new Float32Array(n*n*3),idx=[],x0=t.x*TS-TS/2,z0=t.z*TS-TS/2,i0=t.x*NV-NV/2,j0=t.z*NV-NV/2;
+ for(let r=0;r<n;r++)for(let c=0;c<n;c++){const k=(r*n+c)*3;pos[k]=x0+c*CS;pos[k+1]=hget(i0+c,j0+r);pos[k+2]=z0+r*CS}
+ for(let r=0;r<NV;r++)for(let c=0;c<NV;c++){const a=r*n+c,b=a+1,cc=a+n,d=cc+1;idx.push(a,cc,b,b,cc,d)}
+ const g=new G.BufferGeometry();g.setAttribute("position",new G.BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox();return g}
+function refreshTile(t){const m=tileMeshes.find(m=>m.userData.tile[0]===t.x&&m.userData.tile[1]===t.z);if(!m)return;
+ const g=m.geometry,p=g.attributes.position,n=NV+1,i0=t.x*NV-NV/2,j0=t.z*NV-NV/2;
+ for(let r=0;r<n;r++)for(let c=0;c<n;c++)p.setY(r*n+c,hget(i0+c,j0+r));
+ p.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox()}
+// brush
+const vertOk=(i,j)=>S.tiles.some(t=>Math.abs(i-t.x*NV)<=NV/2&&Math.abs(j-t.z*NV)<=NV/2);
+function applyBrush(dt,inv){if(!brushPos)return;const[x,z]=brushPos,r=BR.w/2,soft=BR.soft/100,sg=inv?-1:1,ups=[],
+  i0=Math.floor((x-r)/CS),i1=Math.ceil((x+r)/CS),j0=Math.floor((z-r)/CS),j1=Math.ceil((z+r)/CS);
+ for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const d=Math.hypot(i*CS-x,j*CS-z);if(d>r||!vertOk(i,j))continue;
+  const t=d/r;let w=1;if(soft>0&&t>1-soft)w=.5*(1+Math.cos(Math.PI*(t-(1-soft))/soft));
+  const c=hget(i,j);let n=c;
+  if(BR.mode==="raise")n=c+BR.s*dt*w*sg;else if(BR.mode==="lower")n=c-BR.s*dt*w*sg;
+  else{const target=BR.mode==="set"?BR.h:(hget(i-1,j)+hget(i+1,j)+hget(i,j-1)+hget(i,j+1))/4;n=c+(target-c)*(1-Math.exp(-BR.s*dt*w*2))}
+  ups.push([i,j,n])}
+ ups.forEach(([i,j,n])=>setH(i,j,n));
+ S.tiles.forEach(t=>{if(Math.abs(x-t.x*TS)<=TS/2+r&&Math.abs(z-t.z*TS)<=TS/2+r)refreshTile(t)});
+ const now=performance.now();if(now-lastRB>150){rebuild();lastRB=now}}
+const brushRing=(()=>{const g=new G.BufferGeometry();g.setAttribute("position",new G.BufferAttribute(new Float32Array(64*3),3));
+ const l=new G.LineLoop(g,new G.LineBasicMaterial({color:0xffffff,depthTest:false}));l.renderOrder=10;l.visible=false;l.frustumCulled=false;noRay(l);scene.add(l);return l})();
+function updateBrushRing(){if(mode!=="terrain"||!brushPos){brushRing.visible=false;return}
+ const r=BR.w/2,p=brushRing.geometry.attributes.position;
+ for(let k=0;k<64;k++){const a=k/64*Math.PI*2,x=brushPos[0]+Math.cos(a)*r,z=brushPos[1]+Math.sin(a)*r;p.setXYZ(k,x,hAt(x,z)+.4,z)}
+ p.needsUpdate=true;brushRing.visible=true}
+function rebuildTiles(){gT.children.forEach(c=>{if(c.geometry)c.geometry.dispose()});while(gT.children.length)gT.remove(gT.children[0]);tileMeshes.length=0;
+ S.tiles.forEach(t=>{const cx=t.x*TS,cz=t.z*TS,h=TS/2;
+  const m=new G.Mesh(tileGeo(t),groundMat);m.userData={tile:[t.x,t.z]};gT.add(m);tileMeshes.push(m);
+  const gr=new G.GridHelper(TS,120,0x000000,0x000000);gr.material.transparent=true;gr.material.opacity=.12;gr.position.set(cx,.01,cz);gT.add(gr);
+  const ln=new G.LineLoop(new G.BufferGeometry().setFromPoints([new G.Vector3(cx-h,.03,cz-h),new G.Vector3(cx+h,.03,cz-h),new G.Vector3(cx+h,.03,cz+h),new G.Vector3(cx-h,.03,cz+h)]),new G.LineBasicMaterial({color:0x2d4a2a}));gT.add(ln)})}
+function rebuildSlots(){while(gSl.children.length)gSl.remove(gSl.children[0]);slotMeshes.length=0;
+ if(mode!=="tile"){hl.visible=false;return}
+ if(tileAct!=="add")return;
+ const seen=new Set(),has=(a,b)=>S.tiles.some(t=>t.x===a&&t.z===b);
+ S.tiles.forEach(t=>[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dz])=>{const a=t.x+dx,b=t.z+dz,k=a+","+b;if(has(a,b)||seen.has(k))return;seen.add(k);
+  const m=new G.Mesh(new G.PlaneGeometry(TS*.96,TS*.96),slotMat);m.rotation.x=-Math.PI/2;m.position.set(a*TS,1,b*TS);m.userData={slot:[a,b]};gSl.add(m);slotMeshes.push(m);
+  for(const[w,d]of[[TS*.3,TS*.03],[TS*.03,TS*.3]]){const bar=new G.Mesh(new G.BoxGeometry(w,1,d),barMat);bar.position.set(a*TS,1.5,b*TS);noRay(bar);gSl.add(bar)}}))}
+function rebuildTList(){const el=$("tlist");el.innerHTML="";
+ S.tiles.forEach(t=>{const b=document.createElement("button");b.textContent=`${t.x},${t.z}`;b.onclick=()=>{const cx=t.x*TS,cz=t.z*TS;flyTo(new G.Vector3(cx,70,cz+60),new G.Vector3(cx,0,cz))};el.appendChild(b)});
+ $("pGo").style.display=S.tiles.length>1&&mode!=="tile"?"":"none"}
+function tileView(){const xs=S.tiles.map(t=>t.x),zs=S.tiles.map(t=>t.z),a=Math.min(...xs),b=Math.max(...xs),c=Math.min(...zs),d=Math.max(...zs),
+  cx=(a+b)/2*TS,cz=(c+d)/2*TS,w=(b-a+3)*TS,l=(d-c+3)*TS,th=Math.tan(cam.fov*D2R/2),h=Math.max(l/2/th,w/2/(th*cam.aspect))*1.02;
+ return{pos:new G.Vector3(cx,h,cz+h*.0005),tgt:new G.Vector3(cx,0,cz)}}
+function enterTile(){camBefore={pos:cam.position.clone(),target:ctl.target.clone()};lastTile=null;tileAct="add";const v=tileView();flyTo(v.pos,v.tgt)}
+function leaveTile(){hl.visible=false;const t=lastTile;
+ if(t){const cx=t.x*TS,cz=t.z*TS;flyTo(new G.Vector3(cx,70,cz+60),new G.Vector3(cx,0,cz))}else if(camBefore)flyTo(camBefore.pos,camBefore.target);lastTile=null}
+function addTile(tx,tz){S.tiles.push({x:tx,z:tz});lastTile={x:tx,z:tz};rebuildTiles();hl.visible=false;paint();const v=tileView();flyTo(v.pos,v.tgt)}
+function removeTile(tx,tz){if(S.tiles.length<=1){alert("At least one tile is required.");return}
+ const inT=(x,z)=>Math.round(x/TS)===tx&&Math.round(z/TS)===tz;
+ if(S.objs.some(o=>inT(o.x,o.z))||S.splines.some(s=>s.pts.some(p=>inT(p[0],p[1])))){alert("This tile still contains objects or spline points. Remove them first.");return}
+ S.tiles=S.tiles.filter(t=>!(t.x===tx&&t.z===tz));hl.visible=false;rebuildTiles();paint();const v=tileView();flyTo(v.pos,v.tgt)}
+function tileHover(e){setRay(e);const add=tileAct==="add",h=ray.intersectObjects(add?slotMeshes:tileMeshes)[0];
+ if(h){const t=h.object.userData[add?"slot":"tile"];hl.material.color.set(add?"#2ecc71":"#e74c3c");hl.position.set(t[0]*TS,2,t[1]*TS);hl.visible=true}else hl.visible=false}
+function tilePick(e){setRay(e);const add=tileAct==="add",h=ray.intersectObjects(add?slotMeshes:tileMeshes)[0];if(!h)return;const t=h.object.userData[add?"slot":"tile"];if(add)addTile(t[0],t[1]);else removeTile(t[0],t[1])}
+
+// UI
+function mk(el,items,set){$(el).innerHTML="";items.forEach(([k,l])=>{const b=document.createElement("button");b.textContent=l;b.dataset.k=k;b.onclick=()=>{set(k);paint()};$(el).appendChild(b)})}
+mk("tools",[["spline","Spline"],["place","Place"],["select","Select"],["terrain","Terrain"],["tile","New tile"]],k=>{const was=mode;mode=k;cur=null;if(k==="place")setGhost();if(k==="terrain")sel=null;
+ if(k==="tile"){if(was!=="tile"){sel=null;enterTile()}else{const v=tileView();flyTo(v.pos,v.tgt)}}else if(was==="tile")leaveTile()});
+mk("tact",[["add","Add tile"],["remove","Remove tile"]],k=>{tileAct=k;hl.visible=false});
+// terrain brush UI
+const BR={mode:"raise",w:30,s:3,soft:60,h:0};
+mk("tmode",[["raise","Raise"],["lower","Lower"],["set","Set height"],["smooth","Smooth"]],k=>{BR.mode=k});
+const TF=[["w","Width (m)",10,300,1],["s","Strength",.1,20,.1],["soft","Softness %",0,100,1],["h","Set height (m)",-50,150,.5]];
+TF.forEach(([k,l,mn,mx,st])=>{const d=document.createElement("div");d.className="fld";
+ d.innerHTML=`<span>${l}</span><input type="range" min="${mn}" max="${mx}" step="${st}" data-k="${k}"><input type="number" step="${st}" data-k="${k}">`;
+ $("tf").appendChild(d);const ins=d.querySelectorAll("input");
+ ins.forEach(inp=>inp.oninput=()=>{const v=parseFloat(inp.value);if(!isFinite(v))return;BR[k]=k==="w"?Math.max(10,v):v;ins.forEach(x=>{if(x!==inp)x.value=inp.value});updateBrushRing()})});
+function syncTer(){TF.forEach(([k])=>document.querySelectorAll(`#tf [data-k="${k}"]`).forEach(x=>x.value=BR[k]))}
+syncTer();
+$("bTerFlat").onclick=()=>{S.tiles.forEach(t=>{const i0=t.x*NV-NV/2,j0=t.z*NV-NV/2;for(let j=0;j<=NV;j++)for(let i=0;i<=NV;i++)setH(i0+i,j0+j,BR.h)});rebuildTiles();paint()};
+$("bTerClr").onclick=()=>{if(confirm("Reset the terrain of all tiles to flat?")){S.hm={};rebuildTiles();paint()}};
+mk("kinds",Object.entries(K).map(([k,v])=>[k,v.n]),k=>kind=k);
+mk("acts",[["move","Move"],["lift","Lift"],["yaw","Yaw"],["pitch","Pitch"],["roll","Roll"],["bend","Bend"]],k=>act=k);
+$("objs").innerHTML=[...new Set(CATS)].map(c=>`<h2>${c}</h2><div class="row">`+Object.values(D).filter(d=>d.cat===c).map(d=>`<button data-k="${d.n}">${d.n.replace(/_/g," ")}</button>`).join("")+"</div>").join("");
+$("objs").onclick=e=>{const k=e.target.dataset.k;if(!k)return;otype=k;mode="place";setGhost();paint()};
+function curType(){return sel&&sel.t==="o"&&mode==="select"&&S.objs[sel.i]?S.objs[sel.i].t:otype}
+function setGhost(){if(ghost)scene.remove(ghost);ghost=build(D[otype]);ghost.traverse(o=>{if(o.material){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.5}});ghost.visible=false;scene.add(ghost)}
+$("iu").onchange=e=>{const d=D[curType()];d.u=e.target.value.trim()||d.n;saveU()};
+function saveU(){const u={};for(const n in D)if(D[n].u!==n)u[n]=D[n].u;try{localStorage.setItem("sdevU",JSON.stringify(u))}catch(e){}}
+for(const[id,f]of[["iw",(s,v)=>s.w=Math.max(.1,v||1)],["is",(s,v)=>s.s=Math.max(0,v||0)]])$(id).onchange=e=>{const s=sp();if(s){f(s,+e.target.value);paint()}};
+$("ic").onchange=e=>{const s=sp();if(s){s.closed=e.target.checked;paint()}};
+
+// object transform fields: [key,label,min,max,step,getter,setter]
+const wrap=d=>((d+180)%360+360)%360-180;
+const FIELDS=[
+ ["x","X (m)",-300,300,.1,o=>o.x,(o,v)=>o.x=v],
+ ["y","Above ground",-5,60,.1,o=>o.y,(o,v)=>o.y=v],
+ ["z","Z (m)",-300,300,.1,o=>o.z,(o,v)=>o.z=v],
+ ["yaw","Yaw °",-180,180,1,o=>wrap(o.rot/D2R),(o,v)=>o.rot=v*D2R],
+ ["pitch","Pitch °",-90,90,1,o=>o.pt,(o,v)=>o.pt=v],
+ ["roll","Roll °",-180,180,1,o=>o.rl,(o,v)=>o.rl=v],
+ ["sc","Scale",.1,5,.05,o=>o.sc,(o,v)=>o.sc=Math.max(.05,v)],
+ ["bend","Bend °",-180,180,1,o=>o.bend,(o,v)=>o.bend=v],
+ ["bd","Bend dir °",0,360,1,o=>o.bd,(o,v)=>o.bd=v]];
+FIELDS.forEach(([k,l,mn,mx,st,g,s])=>{const d=document.createElement("div");d.className="fld";
+ d.innerHTML=`<span>${l}</span><input type="range" min="${mn}" max="${mx}" step="${st}" data-k="${k}"><input type="number" step="${st}" data-k="${k}">`;
+ $("xf").appendChild(d);
+ const ins=d.querySelectorAll("input");
+ ins.forEach(inp=>inp.oninput=()=>{const o=ob();if(!o)return;const v=parseFloat(inp.value);if(!isFinite(v))return;s(o,v);ins.forEach(x=>{if(x!==inp)x.value=inp.value});commit(inp)})});
+function refreshXf(skip){const o=ob();if(!o)return;
+ FIELDS.forEach(([k,,,,,g])=>document.querySelectorAll(`#xf [data-k="${k}"]`).forEach(x=>{if(x!==skip)x.value=+(+g(o)).toFixed(2)}));
+ $("ibm").value=o.bm||"h"}
+function commit(skip){rebuild();save();refreshXf(skip)}
+$("ibm").onchange=e=>{const o=ob();if(o){o.bm=e.target.value;commit()}};
+function dup(){const o=ob();if(!o)return;S.objs.push({...o,x:o.x+2,z:o.z+2});sel={t:"o",i:S.objs.length-1};paint()}
+function delSel(){if(!sel)return;if(sel.t==="o")S.objs.splice(sel.i,1);else{const s=S.splines[sel.s];if(s){s.pts.splice(sel.i,1);if(s.pts.length<2)S.splines.splice(sel.s,1)}}sel=null;paint()}
+$("bDup").onclick=dup;$("bDel").onclick=delSel;
+$("bRst").onclick=()=>{const o=ob();if(o){o.pt=o.rl=o.bend=o.bd=0;paint()}};
+
+function paint(){["tools","kinds","acts","tact","tmode"].forEach(el=>[...$(el).children].forEach(b=>b.classList.toggle("on",b.dataset.k===({tools:mode,kinds:kind,acts:act,tact:tileAct,tmode:BR.mode})[el])));
+ $("objs").querySelectorAll("button").forEach(b=>b.classList.toggle("on",mode==="place"&&b.dataset.k===otype));
+ const o=ob();
+ $("pSpline").style.display=mode==="spline"?"":"none";$("pObj").style.display=mode==="place"||o?"":"none";$("objs").style.display=mode==="place"?"":"none";
+ $("pXf").style.display=o?"":"none";$("actsWrap").style.display=mode==="select"?"":"none";
+ const s=sp();$("pSel").style.display=s?"":"none";if(s){$("iw").value=s.w;$("is").value=s.s;$("ic").checked=s.closed}
+ refreshXf();
+ $("pTile").style.display=mode==="tile"?"":"none";$("pTer").style.display=mode==="terrain"?"":"none";rebuildSlots();rebuildTList();updateBrushRing();
+ $("iu").value=D[curType()].u;rebuild();save()}
+
+// Input
+const ray=new G.Raycaster(),mv=new G.Vector2();
+function setRay(e){const r=cv.getBoundingClientRect();mv.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mv,cam)}
+function gpRaw(e){setRay(e);const h=ray.intersectObjects(tileMeshes)[0];return h?[h.point.x,h.point.z]:null} // hits the terrain surface of existing tiles
+function gp(e){const r=gpRaw(e);return r?[sn(r[0]),sn(r[1])]:null}
+function finish(){if(cur!==null){if(S.splines[cur].pts.length<2)S.splines.splice(cur,1);sel=S.splines[cur]?{t:"p",s:cur,i:0}:null;cur=null;if(pv){scene.remove(pv);pv=null}paint()}}
+
+cv.addEventListener("pointerdown",e=>{
+ if(document.activeElement&&document.activeElement!==document.body)document.activeElement.blur();
+ if(e.button!==0)return;if(mode==="tile"){tilePick(e);return}
+ if(mode==="terrain"){const q=gpRaw(e);if(!q)return;if(e.altKey){BR.h=+hAt(q[0],q[1]).toFixed(2);syncTer();return}brushDown=true;brushPos=q;lastT=performance.now();try{cv.setPointerCapture(e.pointerId)}catch(_){}return}
+ const p=gp(e);
+ if(mode==="spline"&&p){if(cur===null){S.splines.push({k:kind,pts:[p],w:K[kind].w,s:K[kind].s,closed:false});cur=S.splines.length-1}else S.splines[cur].pts.push(p);paint()}
+ else if(mode==="place"&&p){S.objs.push(newObj(otype,p[0],p[1],placeRot));sel={t:"o",i:S.objs.length-1};paint()}
+ else if(mode==="select"){setRay(e);const h=ray.intersectObjects([...gP.children,...gO.children],true)[0];let o=h&&h.object;while(o&&!o.userData.t)o=o.parent;
+  if(o)sel={...o.userData};else if(!(ob()&&act!=="move"))sel=null;
+  drag=null;
+  if(sel){drag={...sel,sx:e.clientX,sy:e.clientY};
+   if(sel.t==="o"&&S.objs[sel.i]){const ob0=S.objs[sel.i];drag.e0={...ob0};drag.off=p?[ob0.x-p[0],ob0.z-p[1]]:[0,0];try{cv.setPointerCapture(e.pointerId)}catch(_){}}}
+  paint()}});
+
+function dragObj(e){const o=S.objs[drag.i];if(!o)return;const e0=drag.e0,dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;
+ const q=v=>e.shiftKey?Math.round(v/15)*15:Math.round(v*2)/2,cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+ if(act==="lift")o.y=cl(+sn(e0.y-dy*.05).toFixed(2),-5,60);
+ else if(act==="yaw")o.rot=q(e0.rot/D2R-dx*.5)*D2R;
+ else if(act==="pitch")o.pt=cl(q(e0.pt-dy*.5),-90,90);
+ else if(act==="roll")o.rl=cl(q(e0.rl+dx*.5),-180,180);
+ else if(act==="bend")o.bend=cl(q(e0.bend+dx*.5),-180,180);
+ commit()}
+
+cv.addEventListener("pointermove",e=>{
+ if(mode==="tile"){tileHover(e);return}
+ if(mode==="terrain"){brushPos=gpRaw(e);updateBrushRing();return}
+ if(drag&&drag.t==="o"&&act!=="move"&&mode==="select"){dragObj(e);return}
+ const p=gp(e);if(!p)return;
+ if(ghost){ghost.visible=mode==="place";place(ghost,p[0],p[1],placeRot,1)}
+ if(cur!==null){const s=S.splines[cur],l=s.pts[s.pts.length-1];if(pv)scene.remove(pv);pv=new G.Line(new G.BufferGeometry().setFromPoints([new G.Vector3(l[0],1,l[1]),new G.Vector3(p[0],1,p[1])]),new G.LineBasicMaterial({color:"#fff"}));scene.add(pv)}
+ if(drag){if(drag.t==="p"){if(S.splines[drag.s]){S.splines[drag.s].pts[drag.i]=p;rebuild()}}else{const o=S.objs[drag.i];if(o){o.x=p[0]+drag.off[0];o.z=p[1]+drag.off[1];commit()}}}});
+
+addEventListener("pointerup",()=>{if(brushDown){brushDown=false;rebuild();save()}if(drag){drag=null;paint()}});
+cv.addEventListener("dblclick",()=>{if(mode==="spline"&&cur!==null){S.splines[cur].pts.pop();finish()}});
+$("bFin").onclick=finish;
+$("bDesel").onclick=()=>{finish();sel=null;drag=null;paint()};
+
+addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName))return;
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="d"){e.preventDefault();dup();return}
+ if(e.key==="Enter")finish();
+ if(e.key==="Escape"){finish();sel=null;drag=null;paint()}
+ if(e.key.toLowerCase()==="r"&&!e.ctrlKey&&!e.metaKey){const st=e.shiftKey?Math.PI/2:Math.PI/12,o=ob();if(o){o.rot+=st;paint()}else placeRot+=st}
+ if((e.key==="Delete"||e.key==="Backspace")&&sel)delSel()});
+
+addEventListener("resize",fit);
+
+// export / import
+const rr=v=>+v.toFixed(2);
+// three.js (right-handed, z flipped for Unity) -> Unity Euler angles, incl. the 180° prefab yaw offset
+function eul(r,o){const q=new G.Quaternion().setFromEuler(new G.Euler(((o&&o.pt)||0)*D2R,r,((o&&o.rl)||0)*D2R,"YXZ"));q.set(-q.x,-q.y,q.z,q.w);q.multiply(new G.Quaternion(0,1,0,0));
+ const e=new G.Euler().setFromQuaternion(q,"YXZ"),f=v=>+((((v/D2R)%360)+360)%360).toFixed(1);return{x:f(e.x),y:f(e.y),z:f(e.z)}}
+function exportJSON(){const objects=[],splines=[];
+ const o2=(n,x,z,r,sc,o)=>{const e=eul(r,o);objects.push({prefab:D[n].u,x:rr(x),y:rr(o?o.y||0:0),z:rr(-z),yaw:e.y,pitch:e.x,roll:e.z,scale:sc,bend:o?o.bend||0:0,bendDir:o?o.bd||0:0,bendAxis:o&&o.bm==="l"?"length":"height"})};
+ S.objs.forEach(o=>o2(o.t,o.x,o.z,o.rot,o.sc,o));
+ S.splines.forEach(s=>{const k=K[s.k],pl=poly(s.pts,s.closed);if(!k.o)splines.push({kind:s.k,width:s.w,closed:s.closed,points:pl.filter((_,i)=>i%4===0||i===pl.length-1).map(p=>({x:rr(p[0]),z:rr(-p[1])}))});
+  else along(pl,s.s).forEach(a=>o2(k.o,a.x,a.z,a.rot,1,null))});
+ // per tile: res x res heights, row 0 = lowest Unity z, column 0 = lowest x
+ const tiles=S.tiles.map(t=>{const e={x:t.x*TS,z:-t.z*TS,ix:t.x,iz:-t.z,res:NV+1,cell:CS},hs=[],i0=t.x*NV-NV/2,j1=t.z*NV+NV/2;
+  for(let r=0;r<=NV;r++)for(let c=0;c<=NV;c++)hs.push(rr(hget(i0+c,j1-r)));
+  if(hs.some(v=>v!==0))e.heights=hs;return e});
+ const head=JSON.stringify({version:3,tileSize:TS,tiles,objects,splines},null,1).replace(/"heights": \[[^\]]*\]/g,m=>m.replace(/\s+/g,""));
+ return head.slice(0,-2)+',\n "editor": '+JSON.stringify(S)+'\n}'}
+
+function openD(t,txt,btn){$("dt").textContent=t;$("ta").value=txt;$("dGo").textContent=btn;$("dlg").showModal()}
+$("bExp").onclick=()=>openD("Export - save as Assets/Resources/map.json",exportJSON(),"Copy");
+$("bImp").onclick=()=>openD("Import - paste exported JSON","","Load");
+$("dClose").onclick=()=>$("dlg").close();
+$("dGo").onclick=()=>{if($("dGo").textContent==="Copy"){$("ta").select();try{navigator.clipboard.writeText($("ta").value)}catch(e){document.execCommand("copy")}}
+ else try{const d=JSON.parse($("ta").value);if(d.editor&&d.version>=2){S=d.editor;norm();sel=cur=null;$("dlg").close();rebuildTiles();paint()}else alert("Needs JSON exported from this editor.")}catch(e){alert("Invalid JSON.")}};
+$("bClr").onclick=()=>{S.splines=[];S.objs=[];sel=cur=null;paint()};$("bHome").onclick=home;
+
+try{const s=JSON.parse(localStorage.getItem("sdev")||"null");if(s&&s.objs&&s.objs.every(o=>"z"in o)){S=s;norm()}}catch(e){}
+fit();home();setGhost();rebuildTiles();paint();
+</script></body></html>
