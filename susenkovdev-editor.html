@@ -33,6 +33,8 @@ small{color:var(--mute)}
 <header>
   <h1>🍪 susenkovDev-editor</h1>
   <span>Map editor for susenkov game</span>
+  <div class="row" style="align-items:center"><button id="bPre" class="on" title="Select the .prefab together with its .meta, model (.fbx/.obj/.glb), .mat and texture files">⬆ Import prefab</button><button id="bFold" title="Pick a whole Unity folder (e.g. Assets/Prefabs)">Folder…</button><label style="gap:4px">Scale<input type="number" id="iscl" value="1" step="0.01" min="0.001" style="width:70px"></label><button id="bClrImp">Clear imported</button><small id="stat"></small></div>
+  <input type="file" id="fIn" multiple hidden><input type="file" id="fDir" webkitdirectory hidden>
   <div class="row" style="margin-left:auto"><button id="bImp">Import</button><button id="bExp" class="on">Export JSON</button></div>
 </header>
 <main><aside>
@@ -91,7 +93,8 @@ const M=(geo,col,x,y,z,g)=>{const m=new G.Mesh(geo,new G.MeshLambertMaterial({co
  Bx=(w,h,d)=>new G.BoxGeometry(w,h,d,seg(w),seg(h),seg(d)),
  Cy=(r,h,r2)=>new G.CylinderGeometry(r,r2??r,h,14,seg(h));
 function build(d){const g=new G.Group(),{s,col,a,b,c}=d;
- if(s==="box")M(Bx(a,b,c),col,0,b/2,0,g);
+ if(s==="model")return d.model.clone();
+ else if(s==="box")M(Bx(a,b,c),col,0,b/2,0,g);
  else if(s==="tile"){M(Bx(a,b,c),col,0,b/2,0,g);if(d.cat==="Roads")M(Bx(.3,.02,c*.8),"#e8e0b0",0,b+.01,0,g)}
  else if(s==="tower"){M(Bx(a,b,a),col,0,b/2,0,g);for(let i=1;i<6;i++)M(Bx(a+.1,b*.04,a+.1),"#ffd27a",0,b*i/6,0,g)}
  else if(s==="terrace")for(let i=0;i<4;i++){const h=b/4;M(Bx(a*(1-i*.2),h,a*(1-i*.2)),col,i*a*.05,i*h+h/2,0,g)}
@@ -231,7 +234,7 @@ function rebuild(){[gS,gP,gO].forEach(g=>{while(g.children.length)g.remove(g.chi
  S.splines.forEach((s,si)=>{const k=K[s.k],pl=poly(s.pts,s.closed);if(pl.length>1)gS.add(ribbon(pl,k.o?.25:s.w,k.c,k.y||.06));
   if(k.o)along(pl,s.s).forEach(a=>{const o=inst(k.o);place(o,a.x,a.z,a.rot,1);gS.add(o)});
   s.pts.forEach((p,i)=>{const m=new G.Mesh(new G.SphereGeometry(.9,10,8),new G.MeshBasicMaterial({color:sel&&sel.t==="p"&&sel.s===si&&sel.i===i?"#e0a000":"#ffffff"}));m.position.set(p[0],hAt(p[0],p[1])+1,p[1]);m.userData={t:"p",s:si,i};gP.add(m)})});
- S.objs.forEach((o,i)=>{const g=mkObj(o);g.userData={t:"o",i};gO.add(g);
+ S.objs.forEach((o,i)=>{if(!D[o.t])return;const g=mkObj(o);g.userData={t:"o",i};gO.add(g);
   if(sel&&sel.t==="o"&&sel.i===i){const r=rad(g)+.6,ring=new G.Mesh(new G.RingGeometry(r,r+.4,32),new G.MeshBasicMaterial({color:"#e0a000",side:G.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(o.x,hAt(o.x,o.z)+.15,o.z);noRay(ring);gP.add(ring);
    g.updateMatrixWorld(true);const bh=new G.BoxHelper(g,0xe0a000);noRay(bh);gP.add(bh)}})}
 
@@ -315,11 +318,12 @@ $("bTerFlat").onclick=()=>{S.tiles.forEach(t=>{const i0=t.x*NV-NV/2,j0=t.z*NV-NV
 $("bTerClr").onclick=()=>{if(confirm("Reset the terrain of all tiles to flat?")){S.hm={};rebuildTiles();paint()}};
 mk("kinds",Object.entries(K).map(([k,v])=>[k,v.n]),k=>kind=k);
 mk("acts",[["move","Move"],["lift","Lift"],["yaw","Yaw"],["pitch","Pitch"],["roll","Roll"],["bend","Bend"]],k=>act=k);
-$("objs").innerHTML=[...new Set(CATS)].map(c=>`<h2>${c}</h2><div class="row">`+Object.values(D).filter(d=>d.cat===c).map(d=>`<button data-k="${d.n}">${d.n.replace(/_/g," ")}</button>`).join("")+"</div>").join("");
+function renderPalette(){$("objs").innerHTML=[...new Set(Object.values(D).map(d=>d.cat))].map(c=>`<h2>${c}</h2><div class="row">`+Object.values(D).filter(d=>d.cat===c).map(d=>`<button data-k="${d.n}">${d.n.replace(/_/g," ")}</button>`).join("")+"</div>").join("")}
+renderPalette();
 $("objs").onclick=e=>{const k=e.target.dataset.k;if(!k)return;otype=k;mode="place";setGhost();paint()};
 function curType(){return sel&&sel.t==="o"&&mode==="select"&&S.objs[sel.i]?S.objs[sel.i].t:otype}
-function setGhost(){if(ghost)scene.remove(ghost);ghost=build(D[otype]);ghost.traverse(o=>{if(o.material){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.5}});ghost.visible=false;scene.add(ghost)}
-$("iu").onchange=e=>{const d=D[curType()];d.u=e.target.value.trim()||d.n;saveU()};
+function setGhost(){if(ghost)scene.remove(ghost);ghost=build(D[otype]);ghost.traverse(o=>{if(o.material){const f=m=>{m=m.clone();m.transparent=true;m.opacity=.5;return m};o.material=Array.isArray(o.material)?o.material.map(f):f(o.material)}});ghost.visible=false;scene.add(ghost)}
+$("iu").onchange=e=>{const d=D[curType()];if(!d)return;d.u=e.target.value.trim()||d.n;saveU()};
 function saveU(){const u={};for(const n in D)if(D[n].u!==n)u[n]=D[n].u;try{localStorage.setItem("sdevU",JSON.stringify(u))}catch(e){}}
 for(const[id,f]of[["iw",(s,v)=>s.w=Math.max(.1,v||1)],["is",(s,v)=>s.s=Math.max(0,v||0)]])$(id).onchange=e=>{const s=sp();if(s){f(s,+e.target.value);paint()}};
 $("ic").onchange=e=>{const s=sp();if(s){s.closed=e.target.checked;paint()}};
@@ -359,7 +363,7 @@ function paint(){["tools","kinds","acts","tact","tmode"].forEach(el=>[...$(el).c
  const s=sp();$("pSel").style.display=s?"":"none";if(s){$("iw").value=s.w;$("is").value=s.s;$("ic").checked=s.closed}
  refreshXf();
  $("pTile").style.display=mode==="tile"?"":"none";$("pTer").style.display=mode==="terrain"?"":"none";rebuildSlots();rebuildTList();updateBrushRing();
- $("iu").value=D[curType()].u;rebuild();save()}
+ {const dd=D[curType()];$("iu").value=dd?dd.u:""}rebuild();save()}
 
 // Input
 const ray=new G.Raycaster(),mv=new G.Vector2();
@@ -420,7 +424,7 @@ const rr=v=>+v.toFixed(2);
 function eul(r,o){const q=new G.Quaternion().setFromEuler(new G.Euler(((o&&o.pt)||0)*D2R,r,((o&&o.rl)||0)*D2R,"YXZ"));q.set(-q.x,-q.y,q.z,q.w);q.multiply(new G.Quaternion(0,1,0,0));
  const e=new G.Euler().setFromQuaternion(q,"YXZ"),f=v=>+((((v/D2R)%360)+360)%360).toFixed(1);return{x:f(e.x),y:f(e.y),z:f(e.z)}}
 function exportJSON(){const objects=[],splines=[];
- const o2=(n,x,z,r,sc,o)=>{const e=eul(r,o);objects.push({prefab:D[n].u,x:rr(x),y:rr(o?o.y||0:0),z:rr(-z),yaw:e.y,pitch:e.x,roll:e.z,scale:sc,bend:o?o.bend||0:0,bendDir:o?o.bd||0:0,bendAxis:o&&o.bm==="l"?"length":"height"})};
+ const o2=(n,x,z,r,sc,o)=>{const e=eul(r,o);objects.push({prefab:D[n]?D[n].u:n,x:rr(x),y:rr(o?o.y||0:0),z:rr(-z),yaw:e.y,pitch:e.x,roll:e.z,scale:sc,bend:o?o.bend||0:0,bendDir:o?o.bd||0:0,bendAxis:o&&o.bm==="l"?"length":"height"})};
  S.objs.forEach(o=>o2(o.t,o.x,o.z,o.rot,o.sc,o));
  S.splines.forEach(s=>{const k=K[s.k],pl=poly(s.pts,s.closed);if(!k.o)splines.push({kind:s.k,width:s.w,closed:s.closed,points:pl.filter((_,i)=>i%4===0||i===pl.length-1).map(p=>({x:rr(p[0]),z:rr(-p[1])}))});
   else along(pl,s.s).forEach(a=>o2(k.o,a.x,a.z,a.rot,1,null))});
@@ -441,4 +445,172 @@ $("bClr").onclick=()=>{S.splines=[];S.objs=[];sel=cur=null;paint()};$("bHome").o
 
 try{const s=JSON.parse(localStorage.getItem("sdev")||"null");if(s&&s.objs&&s.objs.every(o=>"z"in o)){S=s;norm()}}catch(e){}
 fit();home();setGhost();rebuildTiles();paint();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script>
+// ===== Unity .prefab importer =====
+(()=>{
+const G=THREE,el=i=>document.getElementById(i),dec=new TextDecoder();
+const stat=m=>{el("stat").textContent=m};
+const base=p=>p.split("/").pop(),ext=p=>base(p).includes(".")?base(p).split(".").pop().toLowerCase():"",stem=p=>base(p).replace(/\.[^.]+$/,"");
+const num=v=>typeof v==="number"?v:(parseFloat(v)||0);
+const fid=r=>r&&r.fileID!=null?String(r.fileID):"0";
+// YAML would turn long ids / hex guids like 0000..e000.. into numbers -> quote them first
+const qt=s=>s.replace(/(guid: )([0-9a-f]{32})/g,'$1"$2"').replace(/(fileID: )(-?\d{15,})/g,'$1"$2"');
+const MODEL=["fbx","obj","glb","gltf"],IMG={png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",bmp:"image/bmp"};
+const BUILTIN={10202:"cube",10206:"cylinder",10207:"sphere",10208:"capsule",10209:"plane",10210:"quad"};
+let imported=[],bak=new Map(),lastFiles=new Map(),scale=1;
+try{scale=+localStorage.getItem("sdevScale")||1}catch(e){}
+el("iscl").value=scale;
+
+// ---- IndexedDB (keeps uploaded files between sessions)
+const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open("sdevAssets",1);r.onupgradeneeded=()=>r.result.createObjectStore("f");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+async function dbPut(list){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction("f","readwrite"),st=tx.objectStore("f");list.forEach(([k,v])=>st.put(v,k));tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function dbAll(){const db=await idb();return new Promise((res,rej)=>{const out=new Map(),rq=db.transaction("f").objectStore("f").openCursor();rq.onsuccess=()=>{const c=rq.result;if(c){out.set(c.key,c.value);c.continue()}else res(out)};rq.onerror=()=>rej(rq.error)})}
+async function dbClear(){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction("f","readwrite");tx.objectStore("f").clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+
+// ---- Unity YAML
+function parseUnity(text){const out=[],parts=qt(text).split(/^--- !u!(\d+) &(-?\d+)[^\n]*\n/m);
+ for(let i=1;i<parts.length;i+=3){try{out.push({cls:+parts[i],id:parts[i+1],d:jsyaml.load(parts[i+2])||{}})}catch(e){}}
+ return out}
+
+// ---- materials helpers
+const grey=()=>new G.MeshLambertMaterial({color:0xbbbbbb});
+function lamb(m){if(!m)return null;if(m.isMeshLambertMaterial)return m;
+ const l=new G.MeshLambertMaterial({color:m.color?m.color.clone():0xcccccc,map:m.map||null,transparent:m.transparent,opacity:m.opacity,side:m.side,alphaTest:m.alphaTest||0,vertexColors:!!m.vertexColors});
+ if(m.emissive){l.emissive=m.emissive.clone();if(m.emissiveMap)l.emissiveMap=m.emissiveMap}return l}
+const lambAny=m=>Array.isArray(m)?m.map(x=>lamb(x)||grey()):(lamb(m)||grey());
+const dbl=m=>{const f=x=>{x=x.clone();x.side=G.DoubleSide;return x};return Array.isArray(m)?m.map(f):f(m)};
+
+async function processAll(files,fresh){
+ lastFiles=files;restore();
+ const warn=[],done=[],guidMap=new Map(),used=new Set();
+ files.forEach((v,k)=>{if(ext(k)==="meta"){const m=/^guid: ([0-9a-f]{32})/m.exec(dec.decode(v));if(m)guidMap.set(m[1],k.slice(0,-5))}});
+ const paths=[...files.keys()],modelPaths=paths.filter(p=>MODEL.includes(ext(p)));
+ const modelCache=new Map(),texCache=new Map(),matCache=new Map();
+
+ function loadModel(p){if(modelCache.has(p))return modelCache.get(p);
+  const b=files.get(p),e=ext(p);
+  const pr=new Promise((res,rej)=>{const fin=root=>{root.updateMatrixWorld(true);const meshes=[];root.traverse(o=>{if(o.isMesh&&o.geometry)meshes.push(o)});res({root,meshes})};
+   try{if(e==="glb")new G.GLTFLoader().parse(b,"",g=>fin(g.scene),rej);else if(e==="gltf")new G.GLTFLoader().parse(dec.decode(b),"",g=>fin(g.scene),rej);else if(e==="obj")fin(new G.OBJLoader().parse(dec.decode(b)));else fin(new G.FBXLoader().parse(b,""))}catch(err){rej(err)}});
+  modelCache.set(p,pr);return pr}
+
+ function loadTex(p){if(texCache.has(p))return texCache.get(p);let t=null;
+  if(files.has(p)&&IMG[ext(p)]){t=new G.TextureLoader().load(URL.createObjectURL(new Blob([files.get(p)],{type:IMG[ext(p)]})));t.wrapS=t.wrapT=G.RepeatWrapping}
+  texCache.set(p,t);return t}
+
+ function matFromUnity(ref){
+  if(!ref||!ref.guid)return null;const p=guidMap.get(ref.guid);if(!p||!files.has(p)||ext(p)!=="mat")return null;
+  if(matCache.has(p))return matCache.get(p);let m=null;
+  try{const doc=parseUnity(dec.decode(files.get(p))).find(x=>x.cls===21),sp=doc.d.Material.m_SavedProperties||{};
+   const pick=(list,names)=>{for(const nm of names)for(const e of list||[])if(e&&nm in e)return e[nm]};
+   const col=pick(sp.m_Colors,["_BaseColor","_Color"]),env=pick(sp.m_TexEnvs,["_BaseMap","_MainTex","_BaseColorMap","_Diffuse"]),mode=num(pick(sp.m_Floats,["_Mode"])),surf=num(pick(sp.m_Floats,["_Surface"]));
+   const o={color:new G.Color(col?num(col.r):.8,col?num(col.g):.8,col?num(col.b):.8)},a=col&&col.a!=null?num(col.a):1;
+   if(a<1||mode>=2||surf===1){o.transparent=true;o.opacity=a}
+   if(mode===1)o.alphaTest=.5;
+   m=new G.MeshLambertMaterial(o);
+   if(env&&env.m_Texture&&env.m_Texture.guid){const tp=guidMap.get(env.m_Texture.guid),t=tp&&loadTex(tp);
+    if(t){m.map=t;const sc=env.m_Scale,of=env.m_Offset;if(sc)t.repeat.set(num(sc.x)||1,num(sc.y)||1);if(of)t.offset.set(num(of.x),num(of.y))}}
+  }catch(e){m=null}
+  matCache.set(p,m);return m}
+
+ const prim=k=>{switch(k){case"cube":return new G.BoxGeometry(1,1,1);case"sphere":return new G.SphereGeometry(.5,24,16);case"cylinder":case"capsule":return new G.CylinderGeometry(.5,.5,2,24);case"plane":return new G.PlaneGeometry(10,10).rotateX(-Math.PI/2);default:return new G.PlaneGeometry(1,1).rotateY(Math.PI)}};
+ function metaNames(p){const mt=files.get(p+".meta");if(!mt)return null;
+  try{const d=jsyaml.load(qt(dec.decode(mt))),t=d&&d.ModelImporter&&d.ModelImporter.internalIDToNameTable,o={};
+   (t||[]).forEach(e=>{if(e&&e.first)o[String(Object.values(e.first)[0])]=e.second});return o}catch(e){return null}}
+
+ // resolve a MeshFilter reference to {geo,mat}
+ async function getMesh(ref,goName,prefabPath){
+  const id=fid(ref),guid=ref.guid;
+  if(guid==="0000000000000000e000000000000000"){const k=BUILTIN[id];return k?{geo:prim(k),mat:null}:null}
+  let p=guid?guidMap.get(guid):null;
+  if(!p||!files.has(p)){const lc=s=>s.toLowerCase();
+   p=modelPaths.find(x=>lc(stem(x))===lc(goName))||modelPaths.find(x=>lc(stem(x))===lc(stem(prefabPath)))||(modelPaths.length===1?modelPaths[0]:null)}
+  if(!p)return null;
+  used.add(p);
+  const ms=(await loadModel(p)).meshes;if(!ms.length)return null;
+  let pick=null;const names=metaNames(p),nm=names&&names[id];
+  if(nm)pick=ms.find(x=>x.name===nm);
+  if(!pick){const idx=(+id-4300000)/2;if(Number.isInteger(idx)&&ms[idx])pick=ms[idx]}
+  if(!pick)pick=ms.length===1?ms[0]:(ms.find(x=>x.name===goName)||ms[0]);
+  return{geo:pick.geometry,mat:pick.material}}
+
+ function flatten(entries){const root=new G.Group();
+  entries.forEach(({geo,mat,matrix})=>{const g=geo.clone();if(!g.attributes.normal)g.computeVertexNormals();g.applyMatrix4(matrix);
+   root.add(new G.Mesh(g,matrix.determinant()<0?dbl(mat):mat))});
+  return root}
+
+ async function buildPrefab(path){
+  const docs=parseUnity(dec.decode(files.get(path))),byId=new Map(docs.map(x=>[x.id,x]));
+  const rootDoc=docs.find(x=>x.cls===4&&fid(x.d.Transform.m_Father)==="0"&&byId.has(fid(x.d.Transform.m_GameObject))&&byId.get(fid(x.d.Transform.m_GameObject)).cls===1);
+  if(!rootDoc)throw new Error("no root Transform found (variant / nested-only prefab?)");
+  const nested=docs.filter(x=>x.cls===1001).length;if(nested)warn.push(stem(path)+": "+nested+" nested prefab instance(s) skipped");
+  const entries=[];
+  async function walk(id,parent,isRoot){
+   const x=byId.get(String(id));if(!x||x.cls!==4)return;const tr=x.d.Transform,gx=byId.get(fid(tr.m_GameObject)),go=gx&&gx.d.GameObject;
+   if(!go||go.m_IsActive===0)return;
+   const p=tr.m_LocalPosition||{},q=tr.m_LocalRotation||{w:1},s=tr.m_LocalScale||{x:1,y:1,z:1};
+   // Unity (left-handed) -> editor space: mirror X (matches the editor's own export convention)
+   const pos=isRoot?new G.Vector3():new G.Vector3(-num(p.x),num(p.y),num(p.z));
+   const quat=isRoot?new G.Quaternion():new G.Quaternion(num(q.x),-num(q.y),-num(q.z),q.w==null?1:num(q.w)).normalize();
+   const world=parent.clone().multiply(new G.Matrix4().compose(pos,quat,new G.Vector3(num(s.x)||1,num(s.y)||1,num(s.z)||1)));
+   let meshRef=null,mats=[],on=true;
+   for(const c of go.m_Component||[]){const cd=byId.get(fid(c.component));if(!cd)continue;
+    if(cd.cls===33)meshRef=cd.d.MeshFilter.m_Mesh;
+    else if(cd.cls===23){mats=cd.d.MeshRenderer.m_Materials||[];if(cd.d.MeshRenderer.m_Enabled===0)on=false}
+    else if(cd.cls===137){meshRef=cd.d.SkinnedMeshRenderer.m_Mesh;mats=cd.d.SkinnedMeshRenderer.m_Materials||[]}}
+   if(on&&meshRef&&fid(meshRef)!=="0"){
+    const src=await getMesh(meshRef,go.m_Name||"",path);
+    if(src){const isArr=Array.isArray(src.mat),n=isArr?src.mat.length:1,um=mats.map(matFromUnity),out=[];
+     for(let i=0;i<n;i++)out.push(um[i]||lamb(isArr?src.mat[i]:src.mat)||grey());
+     entries.push({geo:src.geo,mat:n>1&&src.geo.groups.length?out:out[0],matrix:world})}
+    else warn.push(stem(path)+": mesh for '"+(go.m_Name||"?")+"' not found (select the .meta + model files too)")}
+   for(const ch of tr.m_Children||[])await walk(fid(ch),world,false)}
+  await walk(rootDoc.id,new G.Matrix4().makeScale(scale,scale,scale),true);
+  if(!entries.length)throw new Error("no meshes resolved");
+  return flatten(entries)}
+
+ async function standalone(p){const{meshes}=await loadModel(p),S0=new G.Matrix4().makeScale(scale,scale,scale);
+  return flatten(meshes.map(m=>({geo:m.geometry,mat:lambAny(m.material),matrix:S0.clone().multiply(m.matrixWorld)})))}
+
+ for(const p of paths.filter(p=>ext(p)==="prefab")){
+  try{register(stem(p),await buildPrefab(p));done.push(stem(p))}catch(e){warn.push(stem(p)+": "+e.message)}}
+ for(const p of modelPaths.filter(p=>!used.has(p)&&!imported.includes(stem(p)))){
+  try{register(stem(p),await standalone(p));done.push(stem(p))}catch(e){warn.push(stem(p)+": "+e.message)}}
+
+ bcache.clear();renderPalette();
+ if(fresh&&done.length){otype=done[0];mode="place";setGhost()}
+ paint();
+ stat((done.length?"Imported "+done.length+": "+done.join(", "):"Nothing imported")+(warn.length?" | ⚠ "+warn.join("; "):""));
+ if(!paths.some(p=>ext(p)==="meta")&&paths.some(p=>ext(p)==="prefab"))stat(el("stat").textContent+" | tip: also select the .meta files so meshes/materials link correctly")}
+
+function register(name,group){const o=D[name];
+ if(o&&!bak.has(name)&&!imported.includes(name))bak.set(name,o);
+ D[name]={n:name,cat:o?o.cat:"Imported",s:"model",col:"#ffffff",a:1,b:1,c:1,u:o?o.u:name,model:group};
+ imported.push(name);delete proto[name]}
+function restore(){imported.forEach(n=>{if(bak.has(n))D[n]=bak.get(n);else delete D[n];delete proto[n]});imported=[];bak.clear();bcache.clear()}
+
+async function onFiles(list){
+ if(!list||!list.length)return;stat("Reading files…");
+ const arr=[];for(const f of list)arr.push([f.webkitRelativePath||f.name,await f.arrayBuffer()]);
+ const all=new Map();try{await dbPut(arr);(await dbAll()).forEach((v,k)=>all.set(k,v))}catch(e){}
+ arr.forEach(([k,v])=>all.set(k,v));
+ stat("Building…");await processAll(all,true)}
+
+el("bPre").onclick=()=>el("fIn").click();el("bFold").onclick=()=>el("fDir").click();
+el("fIn").onchange=e=>{onFiles([...e.target.files]);e.target.value=""};
+el("fDir").onchange=e=>{onFiles([...e.target.files]);e.target.value=""};
+addEventListener("dragover",e=>e.preventDefault());
+addEventListener("drop",e=>{if(e.dataTransfer&&e.dataTransfer.files.length){e.preventDefault();onFiles([...e.dataTransfer.files])}});
+el("iscl").onchange=e=>{scale=Math.max(.001,+e.target.value||1);try{localStorage.setItem("sdevScale",scale)}catch(_){}if(lastFiles.size)processAll(lastFiles,false)};
+el("bClrImp").onclick=async()=>{if(!confirm("Remove all imported prefabs/models (and objects placed from them)?"))return;
+ restore();S.objs=S.objs.filter(o=>D[o.t]);sel=null;if(!D[otype])otype="Palm_03";
+ try{await dbClear()}catch(e){}lastFiles=new Map();stat("");renderPalette();setGhost();paint()};
+stat("Select .prefab + .meta + model/.mat/texture files together (or drop them here)");
+dbAll().then(m=>{if(m.size)processAll(m,false)}).catch(()=>{});
+})();
 </script></body></html>
