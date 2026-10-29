@@ -5,13 +5,8 @@ Vítejte ve vývojářském repozitáři hry **Sušenkov** (`susenkov_devprogram
 ## 🛠️ Editor pro tvorbu mapy
 Součástí tohoto repozitáře je **editor pro dělání mapy** do Sušenkova. Pomocí něj můžete navrhovat vlastní rozvržení a lokace pro náš herní svět.
 
-### Jak vložit vlastní mapu do hry:
-1. Vytvořte nebo upravte mapu v editoru.
-2. Vyexportujte data ve formátu **JSON**.
-3. Přejmenujte vyexportovaný soubor a vložte jej do herního projektu na cestu:  
-   `Assets/Resources/map.json` (původní soubor přepište / nahraďte novým).
-4. Spusťte hru v Unity a vaše vlastní mapa se načte!
-
+## Dokumentace editoru je na této stránce: 
+https://discord.com/channels/1291789841947689063/1565086985826205766
 ---
 
 ## O projektu
