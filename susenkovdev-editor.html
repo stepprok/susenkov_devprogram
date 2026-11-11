@@ -34,15 +34,15 @@ small{color:var(--mute)}
 <header>
   <h1>🍪 susenkovDev-editor</h1>
   <span>Map editor for susenkov game</span>
-  <div class="row" style="align-items:center"><button id="bPre" class="on" title="Select the .prefab together with its .meta, model (.fbx/.obj/.glb), .mat and texture files">⬆ Import prefab</button><button id="bFold" title="Pick a whole Unity folder (e.g. Assets/Prefabs)">Folder…</button><label style="gap:4px">Scale<input type="number" id="iscl" value="1" step="0.01" min="0.001" style="width:70px"></label><button id="bClrImp">Clear imported</button><button id="bRen" class="on">✎ Rename</button><small id="stat"></small></div>
-  <input type="file" id="fIn" multiple hidden><input type="file" id="fDir" webkitdirectory hidden>
+  <div class="row" style="align-items:center"><button id="bRen" class="on">✎ Rename (N)</button></div>
   <div class="row" style="margin-left:auto"><button id="bImp">Import</button><button id="bExp" class="on">Export JSON</button></div>
 </header>
 <main><aside>
 <div><h2>Tool</h2><div class="row" id="tools"></div></div>
 <label>Snap (m)<input type="number" id="snap" value="0" min="0" step="1"></label>
-<div id="pSpline"><h2>Spline type</h2><div class="row" id="kinds"></div><button id="bFin" style="margin-top:6px">Finish spline (Enter)</button></div>
+<div id="pSpline"><h2>Spline type: <span id="kn" style="color:var(--acc)"></span></h2><div class="row" id="kinds"></div><button id="bFin" style="margin-top:6px">Finish spline (Enter)</button></div>
 <div id="pSel"><h2>Selected spline</h2>
+<label>Type<select id="ik"></select></label>
 <label>Width (m)<input type="number" id="iw" step="0.5" min="0.1"></label>
 <label>Spacing (m)<input type="number" id="is" step="0.5" min="0"></label>
 <label>Closed loop<input type="checkbox" id="ic"></label>
@@ -51,11 +51,11 @@ small{color:var(--mute)}
 <div id="pTer"><h2>Terrain brush</h2>
 <div class="row" id="tmode"></div>
 <div id="tf" style="margin:6px 0"></div>
-<small>Hold the left mouse button to paint. <b>Width</b> = brush diameter, <b>Set height</b> = the height (Z/up value) the brush pulls the ground to. <b>Shift</b> = invert Raise/Lower. <b>Alt+click</b> = copy the ground height under the cursor into "Set height".</small>
+<small>Hold the left mouse button to paint. <b>Width</b> = brush diameter, <b>Set height</b> = the height (Z/up value) the brush pulls the ground to. <b>Shift</b> = invert Raise/Lower. <b>Alt+click</b> = copy the ground height under the cursor into "Set height". <b>Water</b>: paint water where you want it - it lays a surface at "Water level" and carves the ground "Water depth" below it. <b>Erase water</b> removes it.</small>
 <div class="row" style="margin-top:6px"><button id="bTerFlat">Fill all tiles to set height</button><button id="bTerClr">Reset terrain</button></div></div>
 <div id="pTile"><h2>Tiles</h2>
-<div class="row" id="tact"></div>
-<small>The camera flies up and looks straight down. <b>Add</b>: click a green + slot on the left / right / top / bottom of a tile to attach a new tile. <b>Remove</b>: click an empty tile to delete it. When you switch to another tool, the camera flies down to the newest tile.</small></div>
+
+<small>The camera flies up and looks straight down. Click a green <b>+</b> slot next to a tile to add a tile. Click an existing (red) tile to delete it (must be empty). When you switch to another tool, the camera flies down to the newest tile.</small></div>
 <div id="pGo"><h2>Go to tile</h2><div class="row" id="tlist"></div></div>
 <div id="pXf"><h2>Selected object</h2>
 <div id="actsWrap"><div class="row" id="acts"></div>
@@ -66,7 +66,7 @@ small{color:var(--mute)}
 </div>
 
 <div id="pObj"><h2>Unity prefab name</h2><input type="text" id="iu" style="width:100%"><small>Rename if your prefab name differs.</small><div id="objs"></div></div>
-<small><b>WASD / Q E</b> = Pohyb po mapě<br><b>Pravé tlačítko</b> = Otáčení kamery<br><b>Levé tlačítko</b> = Pokládání / Výběr / Úprava objektu<br>R = Otáčení objektů (Shift+R o 90°)<br>Ctrl+D = Duplikovat, Delete = Smazat</small>
+<small><b>F1 / ?</b> = všechny zkratky<br><b>WASD / Q E</b> = Pohyb po mapě<br><b>Pravé tlačítko</b> = Otáčení kamery<br><b>Levé tlačítko</b> = Pokládání / Výběr / Úprava objektu<br>R = Otáčení objektů (Shift+R o 90°)<br>Ctrl+D = Duplikovat, Delete = Smazat</small>
 <div class="row"><button id="bClr">Clear map</button><button id="bHome">Reset view</button></div>
 </aside><canvas id="cv"></canvas></main>
 <dialog id="dRen"><h2>Rename prefabs (names used in the Unity export)</h2>
@@ -81,7 +81,18 @@ small{color:var(--mute)}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 const G=THREE,$=i=>document.getElementById(i),cv=$("cv"),D2R=Math.PI/180;
-const K={road:{n:"Road",c:"#3a3d42",w:6,o:null,s:0,y:.05},walk:{n:"Sidewalk",c:"#a7abb0",w:3,o:null,s:0,y:.07},river:{n:"River",c:"#3d8fd1",w:6,o:null,s:0,y:.04},tree:{n:"Palm line",c:"#3f8a46",w:.3,o:"Palm_03",s:6},fence:{n:"Fence",c:"#9c6b3b",w:.3,o:"Fence",s:1.6},lamp:{n:"Spotlight line",c:"#e5b93a",w:.3,o:"Spotlight_01",s:14}};
+const K={
+road2:{n:"2-lane dashed",c:"#3a3d42",w:7,o:null,s:0,y:.05,lanes:2,mk:"dash"},
+road2s:{n:"2-lane solid",c:"#3a3d42",w:7,o:null,s:0,y:.05,lanes:2,mk:"solid"},
+road2d:{n:"2-lane dbl solid",c:"#3a3d42",w:7,o:null,s:0,y:.05,lanes:2,mk:"double"},
+road2b:{n:"2-lane broken",c:"#4a4a48",w:7,o:null,s:0,y:.05,lanes:2,mk:"dash",dmg:1},
+road2p:{n:"2-lane potholes",c:"#403f3c",w:7,o:null,s:0,y:.05,lanes:2,mk:"dash",dmg:2},
+road4:{n:"4-lane",c:"#3a3d42",w:13,o:null,s:0,y:.05,lanes:4,mk:"dash"},
+road4s:{n:"4-lane median",c:"#3a3d42",w:14,o:null,s:0,y:.05,lanes:4,mk:"median"},
+road1:{n:"1-lane",c:"#3a3d42",w:4,o:null,s:0,y:.05,lanes:1,mk:"edge"},
+dirt:{n:"Dirt road",c:"#8a6d46",w:5,o:null,s:0,y:.05,lanes:0,mk:"none"},
+road:{n:"Road (plain)",c:"#3a3d42",w:6,o:null,s:0,y:.05,lanes:0,mk:"none"},
+walk:{n:"Sidewalk",c:"#a7abb0",w:3,o:null,s:0,y:.07},tree:{n:"Palm line",c:"#3f8a46",w:.3,o:"Palm_03",s:6},fence:{n:"Fence",c:"#9c6b3b",w:.3,o:"Fence",s:1.6},lamp:{n:"Spotlight line",c:"#e5b93a",w:.3,o:"Spotlight_01",s:14}};
 const D={},CATS=[];
 function add(cat,l){CATS.push(cat);l.forEach(([n,s,col,a,b,c])=>D[n]={n,cat,s,col,a:a??1,b:b??1,c:c??1,u:n})}
 add("Game",[["Stall","stop","#d96a2b",3,2.6,2],["Machine","box","#3b4a7a",2,2.6,2],["Crate","box","#a47b45",1,1,1],["Fence","box","#9c6b3b",1.6,1.1,.15]]);
@@ -96,7 +107,7 @@ const U0={};try{Object.assign(U0,JSON.parse(localStorage.getItem("sdevU")||"{}")
 for(const n in U0)if(D[n])D[n].u=U0[n];
 // shapes (extra segments so objects can be bent smoothly)
 const seg=v=>Math.min(24,Math.max(1,Math.ceil(v/1.5)));
-const M=(geo,col,x,y,z,g)=>{const m=new G.Mesh(geo,new G.MeshLambertMaterial({color:col}));m.position.set(x,y,z);g.add(m);return m},
+const M=(geo,col,x,y,z,g)=>{const m=new G.Mesh(geo,new G.MeshLambertMaterial({color:col,side:G.DoubleSide}));m.position.set(x,y,z);g.add(m);return m},
  Bx=(w,h,d)=>new G.BoxGeometry(w,h,d,seg(w),seg(h),seg(d)),
  Cy=(r,h,r2)=>new G.CylinderGeometry(r,r2??r,h,14,seg(h));
 function build(d){const g=new G.Group(),{s,col,a,b,c}=d;
@@ -147,7 +158,7 @@ scene.background=new G.Color("#9ec9e8");scene.add(new G.AmbientLight(0xffffff,.7
 const TS=600,CS=5,NV=TS/CS; // tile size (m), terrain cell size (m), cells per tile side
 const ground=new G.Mesh(new G.PlaneGeometry(1e5,1e5),new G.MeshBasicMaterial());ground.rotation.x=-Math.PI/2;ground.visible=false;scene.add(ground); // invisible pick plane
 const groundMat=new G.MeshLambertMaterial({color:"#7fb069"});
-const gS=new G.Group(),gP=new G.Group(),gO=new G.Group(),gT=new G.Group(),gSl=new G.Group();scene.add(gS,gP,gO,gT,gSl);
+const gS=new G.Group(),gP=new G.Group(),gO=new G.Group(),gT=new G.Group(),gSl=new G.Group(),gW=new G.Group();scene.add(gS,gP,gO,gT,gSl,gW);
 
 // Ovládání kamery
 const ctl=new G.OrbitControls(cam,cv);
@@ -210,10 +221,10 @@ function flyTo(pos,tgt,ms=800){fly={p0:cam.position.clone(),t0:ctl.target.clone(
 })();
 
 // state
-let S={splines:[],objs:[],tiles:[{x:0,z:0}],hm:{}},tileAct="add",lastTile=null,camBefore=null,mode="spline",kind="road",otype="Palm_03",cur=null,sel=null,drag=null,placeRot=0,ghost=null,pv=null,act="move";
+let S={splines:[],objs:[],tiles:[{x:0,z:0}],hm:{},wm:{}},tileAct="add",lastTile=null,camBefore=null,mode="spline",kind="road2",otype="Palm_03",cur=null,sel=null,drag=null,placeRot=0,ghost=null,pv=null,act="move";
 const sp=()=>sel&&sel.t==="p"?S.splines[sel.s]:null,ob=()=>sel&&sel.t==="o"?S.objs[sel.i]||null:null,snapV=()=>+$("snap").value||0,sn=v=>snapV()?Math.round(v/snapV())*snapV():v;
 const newObj=(t,x,z,rot)=>({t,x,z,y:0,rot,pt:0,rl:0,sc:1,bend:0,bd:0,bm:"h"});
-function norm(){if(!S.tiles||!S.tiles.length)S.tiles=[{x:0,z:0}];if(!S.hm)S.hm={};S.objs.forEach(o=>{o.y=o.y||0;o.pt=o.pt||0;o.rl=o.rl||0;o.bend=o.bend||0;o.bd=o.bd||0;o.bm=o.bm||"h";o.sc=o.sc||1})}
+function norm(){if(!S.tiles||!S.tiles.length)S.tiles=[{x:0,z:0}];if(!S.hm)S.hm={};if(!S.wm)S.wm={};S.splines=S.splines.filter(s=>K[s.k]);S.objs.forEach(o=>{o.y=o.y||0;o.pt=o.pt||0;o.rl=o.rl||0;o.bend=o.bend||0;o.bd=o.bd||0;o.bm=o.bm||"h";o.sc=o.sc||1})}
 const save=()=>{try{localStorage.setItem("sdev",JSON.stringify(S))}catch(e){}};
 
 // terrain: global height grid, one vertex every CS metres; sparse map "i,j" -> height (m)
@@ -233,12 +244,41 @@ function ribbon(pl,w,col,y){const v=[],ix=[];pl.forEach((p,i)=>{const a=pl[Math.
  const x1=p[0]-dz*w/2,z1=p[1]+dx*w/2,x2=p[0]+dz*w/2,z2=p[1]-dx*w/2;v.push(x1,y+.05+hAt(x1,z1),z1,x2,y+.05+hAt(x2,z2),z2);if(i)ix.push(2*i-2,2*i-1,2*i,2*i-1,2*i+1,2*i)});
  const geo=new G.BufferGeometry();geo.setAttribute("position",new G.Float32BufferAttribute(v,3));geo.setIndex(ix);geo.computeVertexNormals();
  return new G.Mesh(geo,new G.MeshLambertMaterial({color:col,side:G.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}))}
+
+// road markings: offset polyline helpers
+function offs(pl,d){return pl.map((p,i)=>{const a=pl[Math.max(0,i-1)],b=pl[Math.min(pl.length-1,i+1)];let dx=b[0]-a[0],dz=b[1]-a[1];const L=Math.hypot(dx,dz)||1;return[p[0]-dz/L*d,p[1]+dx/L*d]})}
+function dashes(pl,len,gap){const out=[];let acc=0,on=true,cur=[pl[0]];for(let i=0;i<pl.length-1;i++){const a=pl[i],b=pl[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);let pos=0;
+ while(L-pos>acc){pos+=acc;const q=[a[0]+(b[0]-a[0])*pos/L,a[1]+(b[1]-a[1])*pos/L];if(on){cur.push(q);out.push(cur);cur=[]}else cur=[q];on=!on;acc=on?len:gap}
+ acc-=L-pos;if(on)cur.push(b)}
+ if(on&&cur.length>1)out.push(cur);return out.filter(c=>c.length>1)}
+function roadExtras(pl,s,k){const r=[],W=s.w,Y=(k.y||.05)+.03,wc="#e8e0b0",wh="#f2f2f2";
+ const line=(p,w,c)=>{if(p.length>1)r.push(ribbon(p,w,c,Y))};
+ const edge=o=>{line(offs(pl,W/2-o),.15,wh);line(offs(pl,-(W/2-o)),.15,wh)};
+ if(k.mk==="edge"||k.lanes>=2)edge(.35);
+ if(k.mk==="dash"){const n=k.lanes;if(n===2)dashes(pl,3,3).forEach(d=>line(d,.15,wc));else for(let i=1;i<n;i++){const o=-W/2+W*i/n;const p=offs(pl,o);if(i===n/2)line(offs(pl,.15),.12,wc),line(offs(pl,-.15),.12,wc);else dashes(p,3,4).forEach(d=>line(d,.14,wh))}}
+ if(k.mk==="solid")line(pl,.18,wc);
+ if(k.mk==="double"){line(offs(pl,.15),.12,wc);line(offs(pl,-.15),.12,wc)}
+ if(k.mk==="median"){const m=new G.Mesh(new G.BoxGeometry(1,1,1),new G.MeshLambertMaterial({color:"#777"}));
+  const mp=offs(pl,0);line(offs(pl,.6),.1,wc);line(offs(pl,-.6),.1,wc);line(mp,1.0,"#6f7a6a");
+  for(let i=1;i<4;i+=2)dashes(offs(pl,(i===1?-1:1)*W/4),3,4).forEach(d=>line(d,.14,wh))}
+ if(k.dmg){const rnd=(i)=>{const x=Math.sin(i*127.1+W*7.7)*43758.5453;return x-Math.floor(x)},N=k.dmg===2?Math.floor(pl.length*.9):Math.floor(pl.length*.5);
+  for(let i=0;i<N;i++){const j=Math.floor(rnd(i)*(pl.length-1)),p=pl[j],off=(rnd(i+99)-.5)*(W-1),a=pl[j],b=pl[Math.min(pl.length-1,j+1)],dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz)||1;
+   const x=p[0]-dz/L*off,z=p[1]+dx/L*off,rr_=k.dmg===2?.5+rnd(i+5)*.9:.3+rnd(i+5)*.5;
+   const m=new G.Mesh(new G.CircleGeometry(rr_,12),new G.MeshLambertMaterial({color:k.dmg===2?"#1e1d1b":"#2a2926",polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
+   m.rotation.x=-Math.PI/2;m.position.set(x,hAt(x,z)+Y+.1,z);r.push(m);
+   if(k.dmg===1){const cr=new G.Mesh(new G.PlaneGeometry(rr_*3,.06),new G.MeshBasicMaterial({color:"#151515"}));cr.rotation.x=-Math.PI/2;cr.rotation.z=rnd(i+7)*3;cr.position.set(x,hAt(x,z)+Y+.12,z);r.push(cr)}}}
+ return r}
 function rad(g){const s=new G.Box3().setFromObject(g).getSize(new G.Vector3());return Math.max(s.x,s.z)/2}
 function place(g,x,z,rot,sc){g.position.set(x,hAt(x,z),z);g.rotation.y=rot;g.scale.setScalar(sc)}
 function mkObj(o){const g=bendInst(o);g.position.set(o.x,(o.y||0)+hAt(o.x,o.z),o.z);g.rotation.set((o.pt||0)*D2R,o.rot,(o.rl||0)*D2R,"YXZ");g.scale.setScalar(o.sc);return g}
 const noRay=m=>{m.raycast=()=>{}};
-function rebuild(){[gS,gP,gO].forEach(g=>{while(g.children.length)g.remove(g.children[0])});
- S.splines.forEach((s,si)=>{const k=K[s.k],pl=poly(s.pts,s.closed);if(pl.length>1)gS.add(ribbon(pl,k.o?.25:s.w,k.c,k.y||.06));
+const waterMat=new G.MeshLambertMaterial({color:"#3d8fd1",transparent:true,opacity:.75,side:G.DoubleSide});
+function rebuildWater(){gW.children.forEach(c=>c.geometry&&c.geometry.dispose());while(gW.children.length)gW.remove(gW.children[0]);
+ const ks=Object.keys(S.wm);if(!ks.length)return;const v=[],ix=[];
+ ks.forEach(k=>{const[i,j]=k.split(",").map(Number),y=S.wm[k]+.05,x0=i*CS,z0=j*CS,n=v.length/3;v.push(x0,y,z0,x0+CS,y,z0,x0,y,z0+CS,x0+CS,y,z0+CS);ix.push(n,n+2,n+1,n+1,n+2,n+3)});
+ const g=new G.BufferGeometry();g.setAttribute("position",new G.Float32BufferAttribute(v,3));g.setIndex(ix);g.computeVertexNormals();const m=new G.Mesh(g,waterMat);noRay(m);gW.add(m)}
+function rebuild(){rebuildWater();[gS,gP,gO].forEach(g=>{while(g.children.length)g.remove(g.children[0])});
+ S.splines.forEach((s,si)=>{const k=K[s.k],pl=poly(s.pts,s.closed);if(pl.length>1){gS.add(ribbon(pl,k.o?.25:s.w,k.c,k.y||.06));if(k.mk)roadExtras(pl,s,k).forEach(m=>gS.add(m))}
   if(k.o)along(pl,s.s).forEach(a=>{const o=inst(k.o);place(o,a.x,a.z,a.rot,1);gS.add(o)});
   s.pts.forEach((p,i)=>{const m=new G.Mesh(new G.SphereGeometry(.9,10,8),new G.MeshBasicMaterial({color:sel&&sel.t==="p"&&sel.s===si&&sel.i===i?"#e0a000":"#ffffff"}));m.position.set(p[0],hAt(p[0],p[1])+1,p[1]);m.userData={t:"p",s:si,i};gP.add(m)})});
  S.objs.forEach((o,i)=>{if(!D[o.t])return;const g=mkObj(o);g.userData={t:"o",i};gO.add(g);
@@ -259,7 +299,14 @@ function refreshTile(t){const m=tileMeshes.find(m=>m.userData.tile[0]===t.x&&m.u
  p.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox()}
 // brush
 const vertOk=(i,j)=>S.tiles.some(t=>Math.abs(i-t.x*NV)<=NV/2&&Math.abs(j-t.z*NV)<=NV/2);
-function applyBrush(dt,inv){if(!brushPos)return;const[x,z]=brushPos,r=BR.w/2,soft=BR.soft/100,sg=inv?-1:1,ups=[],
+function applyBrush(dt,inv){if(!brushPos)return;
+ if(BR.mode==="water"||BR.mode==="unwater"){const[x,z]=brushPos,r=BR.w/2,t=BR.wl-BR.wd;
+  for(let j=Math.floor((z-r)/CS);j<=Math.ceil((z+r)/CS);j++)for(let i=Math.floor((x-r)/CS);i<=Math.ceil((x+r)/CS);i++){
+   if(Math.hypot((i+.5)*CS-x,(j+.5)*CS-z)>r||!(vertOk(i,j)&&vertOk(i+1,j)&&vertOk(i,j+1)&&vertOk(i+1,j+1)))continue;
+   if(BR.mode==="water"){S.wm[hk(i,j)]=BR.wl;for(const[a,b]of[[0,0],[1,0],[0,1],[1,1]])if(hget(i+a,j+b)>t)setH(i+a,j+b,t)}else delete S.wm[hk(i,j)]}
+  S.tiles.forEach(tl=>{if(Math.abs(x-tl.x*TS)<=TS/2+r&&Math.abs(z-tl.z*TS)<=TS/2+r)refreshTile(tl)});
+  const nw=performance.now();if(nw-lastRB>150){rebuild();lastRB=nw}return}
+const[x,z]=brushPos,r=BR.w/2,soft=BR.soft/100,sg=inv?-1:1,ups=[],
   i0=Math.floor((x-r)/CS),i1=Math.ceil((x+r)/CS),j0=Math.floor((z-r)/CS),j1=Math.ceil((z+r)/CS);
  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const d=Math.hypot(i*CS-x,j*CS-z);if(d>r||!vertOk(i,j))continue;
   const t=d/r;let w=1;if(soft>0&&t>1-soft)w=.5*(1+Math.cos(Math.PI*(t-(1-soft))/soft));
@@ -283,7 +330,6 @@ function rebuildTiles(){gT.children.forEach(c=>{if(c.geometry)c.geometry.dispose
   const ln=new G.LineLoop(new G.BufferGeometry().setFromPoints([new G.Vector3(cx-h,.03,cz-h),new G.Vector3(cx+h,.03,cz-h),new G.Vector3(cx+h,.03,cz+h),new G.Vector3(cx-h,.03,cz+h)]),new G.LineBasicMaterial({color:0x2d4a2a}));gT.add(ln)})}
 function rebuildSlots(){while(gSl.children.length)gSl.remove(gSl.children[0]);slotMeshes.length=0;
  if(mode!=="tile"){hl.visible=false;return}
- if(tileAct!=="add")return;
  const seen=new Set(),has=(a,b)=>S.tiles.some(t=>t.x===a&&t.z===b);
  S.tiles.forEach(t=>[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dz])=>{const a=t.x+dx,b=t.z+dz,k=a+","+b;if(has(a,b)||seen.has(k))return;seen.add(k);
   const m=new G.Mesh(new G.PlaneGeometry(TS*.96,TS*.96),slotMat);m.rotation.x=-Math.PI/2;m.position.set(a*TS,1,b*TS);m.userData={slot:[a,b]};gSl.add(m);slotMeshes.push(m);
@@ -302,19 +348,19 @@ function removeTile(tx,tz){if(S.tiles.length<=1){alert("At least one tile is req
  const inT=(x,z)=>Math.round(x/TS)===tx&&Math.round(z/TS)===tz;
  if(S.objs.some(o=>inT(o.x,o.z))||S.splines.some(s=>s.pts.some(p=>inT(p[0],p[1])))){alert("This tile still contains objects or spline points. Remove them first.");return}
  S.tiles=S.tiles.filter(t=>!(t.x===tx&&t.z===tz));hl.visible=false;rebuildTiles();paint();const v=tileView();flyTo(v.pos,v.tgt)}
-function tileHover(e){setRay(e);const add=tileAct==="add",h=ray.intersectObjects(add?slotMeshes:tileMeshes)[0];
- if(h){const t=h.object.userData[add?"slot":"tile"];hl.material.color.set(add?"#2ecc71":"#e74c3c");hl.position.set(t[0]*TS,2,t[1]*TS);hl.visible=true}else hl.visible=false}
-function tilePick(e){setRay(e);const add=tileAct==="add",h=ray.intersectObjects(add?slotMeshes:tileMeshes)[0];if(!h)return;const t=h.object.userData[add?"slot":"tile"];if(add)addTile(t[0],t[1]);else removeTile(t[0],t[1])}
+function tileHover(e){setRay(e);const h=ray.intersectObjects([...slotMeshes,...tileMeshes])[0];
+ if(h){const add=!!h.object.userData.slot,t=h.object.userData[add?"slot":"tile"];hl.material.color.set(add?"#2ecc71":"#e74c3c");hl.position.set(t[0]*TS,2,t[1]*TS);hl.visible=true}else hl.visible=false}
+function tilePick(e){setRay(e);const h=ray.intersectObjects([...slotMeshes,...tileMeshes])[0];if(!h)return;const add=!!h.object.userData.slot,t=h.object.userData[add?"slot":"tile"];if(add)addTile(t[0],t[1]);else removeTile(t[0],t[1])}
 
 // UI
 function mk(el,items,set){$(el).innerHTML="";items.forEach(([k,l])=>{const b=document.createElement("button");b.textContent=l;b.dataset.k=k;b.onclick=()=>{set(k);paint()};$(el).appendChild(b)})}
 mk("tools",[["spline","Spline"],["place","Place"],["select","Select"],["terrain","Terrain"],["tile","New tile"]],k=>{const was=mode;mode=k;cur=null;if(k==="place")setGhost();if(k==="terrain")sel=null;
  if(k==="tile"){if(was!=="tile"){sel=null;enterTile()}else{const v=tileView();flyTo(v.pos,v.tgt)}}else if(was==="tile")leaveTile()});
-mk("tact",[["add","Add tile"],["remove","Remove tile"]],k=>{tileAct=k;hl.visible=false});
+
 // terrain brush UI
-const BR={mode:"raise",w:30,s:3,soft:60,h:0};
-mk("tmode",[["raise","Raise"],["lower","Lower"],["set","Set height"],["smooth","Smooth"]],k=>{BR.mode=k});
-const TF=[["w","Width (m)",10,300,1],["s","Strength",.1,20,.1],["soft","Softness %",0,100,1],["h","Set height (m)",-50,150,.5]];
+const BR={mode:"raise",w:30,s:3,soft:60,h:0,wl:0,wd:1.5};
+mk("tmode",[["raise","Raise"],["lower","Lower"],["set","Set height"],["smooth","Smooth"],["water","💧 Water"],["unwater","Erase water"]],k=>{BR.mode=k});
+const TF=[["w","Width (m)",10,300,1],["s","Strength",.1,20,.1],["soft","Softness %",0,100,1],["h","Set height (m)",-50,150,.5],["wl","Water level (m)",-50,150,.5],["wd","Water depth (m)",0,10,.25]];
 TF.forEach(([k,l,mn,mx,st])=>{const d=document.createElement("div");d.className="fld";
  d.innerHTML=`<span>${l}</span><input type="range" min="${mn}" max="${mx}" step="${st}" data-k="${k}"><input type="number" step="${st}" data-k="${k}">`;
  $("tf").appendChild(d);const ins=d.querySelectorAll("input");
@@ -333,6 +379,8 @@ function setGhost(){if(ghost)scene.remove(ghost);ghost=build(D[otype]);ghost.tra
 $("iu").onchange=e=>{const d=D[curType()];if(!d)return;d.u=e.target.value.trim()||d.n;saveU()};
 function saveU(){for(const n in D){if(D[n].u!==n)U0[n]=D[n].u;else delete U0[n]}try{localStorage.setItem("sdevU",JSON.stringify(U0))}catch(e){}}
 for(const[id,f]of[["iw",(s,v)=>s.w=Math.max(.1,v||1)],["is",(s,v)=>s.s=Math.max(0,v||0)]])$(id).onchange=e=>{const s=sp();if(s){f(s,+e.target.value);paint()}};
+$("ik").innerHTML=Object.entries(K).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join("");
+$("ik").onchange=e=>{const s=sp();if(s&&K[e.target.value]){s.k=e.target.value;s.w=K[s.k].w;paint()}};
 $("ic").onchange=e=>{const s=sp();if(s){s.closed=e.target.checked;paint()}};
 
 // object transform fields: [key,label,min,max,step,getter,setter]
@@ -362,12 +410,12 @@ function delSel(){if(!sel)return;if(sel.t==="o")S.objs.splice(sel.i,1);else{cons
 $("bDup").onclick=dup;$("bDel").onclick=delSel;
 $("bRst").onclick=()=>{const o=ob();if(o){o.pt=o.rl=o.bend=o.bd=0;paint()}};
 
-function paint(){["tools","kinds","acts","tact","tmode"].forEach(el=>[...$(el).children].forEach(b=>b.classList.toggle("on",b.dataset.k===({tools:mode,kinds:kind,acts:act,tact:tileAct,tmode:BR.mode})[el])));
+function paint(){["tools","kinds","acts","tmode"].forEach(el=>[...$(el).children].forEach(b=>b.classList.toggle("on",b.dataset.k===({tools:mode,kinds:kind,acts:act,tact:tileAct,tmode:BR.mode})[el])));
  $("objs").querySelectorAll("button").forEach(b=>b.classList.toggle("on",mode==="place"&&b.dataset.k===otype));
  const o=ob();
  $("pSpline").style.display=mode==="spline"?"":"none";$("pObj").style.display=mode==="place"||o?"":"none";$("objs").style.display=mode==="place"?"":"none";
  $("pXf").style.display=o?"":"none";$("actsWrap").style.display=mode==="select"?"":"none";
- const s=sp();$("pSel").style.display=s?"":"none";if(s){$("iw").value=s.w;$("is").value=s.s;$("ic").checked=s.closed}
+ $("kn").textContent=K[kind]?K[kind].n:kind;const s=sp();$("pSel").style.display=s?"":"none";if(s){$("ik").value=s.k;$("iw").value=s.w;$("is").value=s.s;$("ic").checked=s.closed}
  refreshXf();
  $("pTile").style.display=mode==="tile"?"":"none";$("pTer").style.display=mode==="terrain"?"":"none";rebuildSlots();rebuildTList();updateBrushRing();
  {const dd=D[curType()];$("iu").value=dd?dd.u:""}rebuild();save()}
@@ -439,7 +487,8 @@ function exportJSON(){const objects=[],splines=[];
  const tiles=S.tiles.map(t=>{const e={x:t.x*TS,z:-t.z*TS,ix:t.x,iz:-t.z,res:NV+1,cell:CS},hs=[],i0=t.x*NV-NV/2,j1=t.z*NV+NV/2;
   for(let r=0;r<=NV;r++)for(let c=0;c<=NV;c++)hs.push(rr(hget(i0+c,j1-r)));
   if(hs.some(v=>v!==0))e.heights=hs;return e});
- const head=JSON.stringify({version:3,tileSize:TS,tiles,objects,splines},null,1).replace(/"heights": \[[^\]]*\]/g,m=>m.replace(/\s+/g,""));
+ const water=[];Object.entries(S.wm).forEach(([k,y])=>{const[i,j]=k.split(",").map(Number);water.push(rr((i+.5)*CS),rr(-(j+.5)*CS),rr(y))});
+ const head=JSON.stringify({version:3,tileSize:TS,waterCell:CS,tiles,objects,splines,water},null,1).replace(/"(heights|water)": \[[^\]]*\]/g,m=>m.replace(/\s+/g,""));
  return head.slice(0,-2)+',\n "editor": '+JSON.stringify(S)+'\n}'}
 
 function openD(t,txt,btn){$("dt").textContent=t;$("ta").value=txt;$("dGo").textContent=btn;$("dlg").showModal()}
@@ -448,178 +497,32 @@ $("bImp").onclick=()=>openD("Import - paste exported JSON","","Load");
 $("dClose").onclick=()=>$("dlg").close();
 $("dGo").onclick=()=>{if($("dGo").textContent==="Copy"){$("ta").select();try{navigator.clipboard.writeText($("ta").value)}catch(e){document.execCommand("copy")}}
  else try{const d=JSON.parse($("ta").value);if(d.editor&&d.version>=2){S=d.editor;norm();sel=cur=null;$("dlg").close();rebuildTiles();paint()}else alert("Needs JSON exported from this editor.")}catch(e){alert("Invalid JSON.")}};
-$("bClr").onclick=()=>{S.splines=[];S.objs=[];sel=cur=null;paint()};$("bHome").onclick=home;
+$("bClr").onclick=()=>{S.splines=[];S.objs=[];S.wm={};sel=cur=null;paint()};$("bHome").onclick=home;
 
 try{const s=JSON.parse(localStorage.getItem("sdev")||"null");if(s&&s.objs&&s.objs.every(o=>"z"in o)){S=s;norm()}}catch(e){}
 fit();home();setGhost();rebuildTiles();paint();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script>
-// ===== Unity .prefab importer =====
-(()=>{
-const G=THREE,el=i=>document.getElementById(i),dec=new TextDecoder();
-const stat=m=>{el("stat").textContent=m};
-const base=p=>p.split("/").pop(),ext=p=>base(p).includes(".")?base(p).split(".").pop().toLowerCase():"",stem=p=>base(p).replace(/\.[^.]+$/,"");
-const num=v=>typeof v==="number"?v:(parseFloat(v)||0);
-const fid=r=>r&&r.fileID!=null?String(r.fileID):"0";
-// YAML would turn long ids / hex guids like 0000..e000.. into numbers -> quote them first
-const qt=s=>s.replace(/(guid: )([0-9a-f]{32})/g,'$1"$2"').replace(/(fileID: )(-?\d{15,})/g,'$1"$2"');
-const MODEL=["fbx","obj","glb","gltf"],IMG={png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",bmp:"image/bmp"};
-const BUILTIN={10202:"cube",10206:"cylinder",10207:"sphere",10208:"capsule",10209:"plane",10210:"quad"};
-let imported=[],bak=new Map(),lastFiles=new Map(),scale=1;
-try{scale=+localStorage.getItem("sdevScale")||1}catch(e){}
-el("iscl").value=scale;
-
-// ---- IndexedDB (keeps uploaded files between sessions)
-const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open("sdevAssets",1);r.onupgradeneeded=()=>r.result.createObjectStore("f");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-async function dbPut(list){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction("f","readwrite"),st=tx.objectStore("f");list.forEach(([k,v])=>st.put(v,k));tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-async function dbAll(){const db=await idb();return new Promise((res,rej)=>{const out=new Map(),rq=db.transaction("f").objectStore("f").openCursor();rq.onsuccess=()=>{const c=rq.result;if(c){out.set(c.key,c.value);c.continue()}else res(out)};rq.onerror=()=>rej(rq.error)})}
-async function dbClear(){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction("f","readwrite");tx.objectStore("f").clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-
-// ---- Unity YAML
-function parseUnity(text){const out=[],parts=qt(text).split(/^--- !u!(\d+) &(-?\d+)[^\n]*\n/m);
- for(let i=1;i<parts.length;i+=3){try{out.push({cls:+parts[i],id:parts[i+1],d:jsyaml.load(parts[i+2])||{}})}catch(e){}}
- return out}
-
-// ---- materials helpers
-const grey=()=>new G.MeshLambertMaterial({color:0xbbbbbb});
-function lamb(m){if(!m)return null;if(m.isMeshLambertMaterial)return m;
- const l=new G.MeshLambertMaterial({color:m.color?m.color.clone():0xcccccc,map:m.map||null,transparent:m.transparent,opacity:m.opacity,side:m.side,alphaTest:m.alphaTest||0,vertexColors:!!m.vertexColors});
- if(m.emissive){l.emissive=m.emissive.clone();if(m.emissiveMap)l.emissiveMap=m.emissiveMap}return l}
-const lambAny=m=>Array.isArray(m)?m.map(x=>lamb(x)||grey()):(lamb(m)||grey());
-const dbl=m=>{const f=x=>{x=x.clone();x.side=G.DoubleSide;return x};return Array.isArray(m)?m.map(f):f(m)};
-
-async function processAll(files,fresh){
- lastFiles=files;restore();
- const warn=[],done=[],guidMap=new Map(),used=new Set();
- files.forEach((v,k)=>{if(ext(k)==="meta"){const m=/^guid: ([0-9a-f]{32})/m.exec(dec.decode(v));if(m)guidMap.set(m[1],k.slice(0,-5))}});
- const paths=[...files.keys()],modelPaths=paths.filter(p=>MODEL.includes(ext(p)));
- const modelCache=new Map(),texCache=new Map(),matCache=new Map();
-
- function loadModel(p){if(modelCache.has(p))return modelCache.get(p);
-  const b=files.get(p),e=ext(p);
-  const pr=new Promise((res,rej)=>{const fin=root=>{root.updateMatrixWorld(true);const meshes=[];root.traverse(o=>{if(o.isMesh&&o.geometry)meshes.push(o)});res({root,meshes})};
-   try{if(e==="glb")new G.GLTFLoader().parse(b,"",g=>fin(g.scene),rej);else if(e==="gltf")new G.GLTFLoader().parse(dec.decode(b),"",g=>fin(g.scene),rej);else if(e==="obj")fin(new G.OBJLoader().parse(dec.decode(b)));else fin(new G.FBXLoader().parse(b,""))}catch(err){rej(err)}});
-  modelCache.set(p,pr);return pr}
-
- function loadTex(p){if(texCache.has(p))return texCache.get(p);let t=null;
-  if(files.has(p)&&IMG[ext(p)]){t=new G.TextureLoader().load(URL.createObjectURL(new Blob([files.get(p)],{type:IMG[ext(p)]})));t.wrapS=t.wrapT=G.RepeatWrapping}
-  texCache.set(p,t);return t}
-
- function matFromUnity(ref){
-  if(!ref||!ref.guid)return null;const p=guidMap.get(ref.guid);if(!p||!files.has(p)||ext(p)!=="mat")return null;
-  if(matCache.has(p))return matCache.get(p);let m=null;
-  try{const doc=parseUnity(dec.decode(files.get(p))).find(x=>x.cls===21),sp=doc.d.Material.m_SavedProperties||{};
-   const pick=(list,names)=>{for(const nm of names)for(const e of list||[])if(e&&nm in e)return e[nm]};
-   const col=pick(sp.m_Colors,["_BaseColor","_Color"]),env=pick(sp.m_TexEnvs,["_BaseMap","_MainTex","_BaseColorMap","_Diffuse"]),mode=num(pick(sp.m_Floats,["_Mode"])),surf=num(pick(sp.m_Floats,["_Surface"]));
-   const o={color:new G.Color(col?num(col.r):.8,col?num(col.g):.8,col?num(col.b):.8)},a=col&&col.a!=null?num(col.a):1;
-   if(a<1||mode>=2||surf===1){o.transparent=true;o.opacity=a}
-   if(mode===1)o.alphaTest=.5;
-   m=new G.MeshLambertMaterial(o);
-   if(env&&env.m_Texture&&env.m_Texture.guid){const tp=guidMap.get(env.m_Texture.guid),t=tp&&loadTex(tp);
-    if(t){m.map=t;const sc=env.m_Scale,of=env.m_Offset;if(sc)t.repeat.set(num(sc.x)||1,num(sc.y)||1);if(of)t.offset.set(num(of.x),num(of.y))}}
-  }catch(e){m=null}
-  matCache.set(p,m);return m}
-
- const prim=k=>{switch(k){case"cube":return new G.BoxGeometry(1,1,1);case"sphere":return new G.SphereGeometry(.5,24,16);case"cylinder":case"capsule":return new G.CylinderGeometry(.5,.5,2,24);case"plane":return new G.PlaneGeometry(10,10).rotateX(-Math.PI/2);default:return new G.PlaneGeometry(1,1).rotateY(Math.PI)}};
- function metaNames(p){const mt=files.get(p+".meta");if(!mt)return null;
-  try{const d=jsyaml.load(qt(dec.decode(mt))),t=d&&d.ModelImporter&&d.ModelImporter.internalIDToNameTable,o={};
-   (t||[]).forEach(e=>{if(e&&e.first)o[String(Object.values(e.first)[0])]=e.second});return o}catch(e){return null}}
-
- // resolve a MeshFilter reference to {geo,mat}
- async function getMesh(ref,goName,prefabPath){
-  const id=fid(ref),guid=ref.guid;
-  if(guid==="0000000000000000e000000000000000"){const k=BUILTIN[id];return k?{geo:prim(k),mat:null}:null}
-  let p=guid?guidMap.get(guid):null;
-  if(!p||!files.has(p)){const lc=s=>s.toLowerCase();
-   p=modelPaths.find(x=>lc(stem(x))===lc(goName))||modelPaths.find(x=>lc(stem(x))===lc(stem(prefabPath)))||(modelPaths.length===1?modelPaths[0]:null)}
-  if(!p)return null;
-  used.add(p);
-  const ms=(await loadModel(p)).meshes;if(!ms.length)return null;
-  let pick=null;const names=metaNames(p),nm=names&&names[id];
-  if(nm)pick=ms.find(x=>x.name===nm);
-  if(!pick){const idx=(+id-4300000)/2;if(Number.isInteger(idx)&&ms[idx])pick=ms[idx]}
-  if(!pick)pick=ms.length===1?ms[0]:(ms.find(x=>x.name===goName)||ms[0]);
-  return{geo:pick.geometry,mat:pick.material}}
-
- function flatten(entries){const root=new G.Group();
-  entries.forEach(({geo,mat,matrix})=>{const g=geo.clone();if(!g.attributes.normal)g.computeVertexNormals();g.applyMatrix4(matrix);
-   root.add(new G.Mesh(g,matrix.determinant()<0?dbl(mat):mat))});
-  return root}
-
- async function buildPrefab(path){
-  const docs=parseUnity(dec.decode(files.get(path))),byId=new Map(docs.map(x=>[x.id,x]));
-  const rootDoc=docs.find(x=>x.cls===4&&fid(x.d.Transform.m_Father)==="0"&&byId.has(fid(x.d.Transform.m_GameObject))&&byId.get(fid(x.d.Transform.m_GameObject)).cls===1);
-  if(!rootDoc)throw new Error("no root Transform found (variant / nested-only prefab?)");
-  const nested=docs.filter(x=>x.cls===1001).length;if(nested)warn.push(stem(path)+": "+nested+" nested prefab instance(s) skipped");
-  const entries=[];
-  async function walk(id,parent,isRoot){
-   const x=byId.get(String(id));if(!x||x.cls!==4)return;const tr=x.d.Transform,gx=byId.get(fid(tr.m_GameObject)),go=gx&&gx.d.GameObject;
-   if(!go||go.m_IsActive===0)return;
-   const p=tr.m_LocalPosition||{},q=tr.m_LocalRotation||{w:1},s=tr.m_LocalScale||{x:1,y:1,z:1};
-   // Unity (left-handed) -> editor space: mirror X (matches the editor's own export convention)
-   const pos=isRoot?new G.Vector3():new G.Vector3(-num(p.x),num(p.y),num(p.z));
-   const quat=isRoot?new G.Quaternion():new G.Quaternion(num(q.x),-num(q.y),-num(q.z),q.w==null?1:num(q.w)).normalize();
-   const world=parent.clone().multiply(new G.Matrix4().compose(pos,quat,new G.Vector3(num(s.x)||1,num(s.y)||1,num(s.z)||1)));
-   let meshRef=null,mats=[],on=true;
-   for(const c of go.m_Component||[]){const cd=byId.get(fid(c.component));if(!cd)continue;
-    if(cd.cls===33)meshRef=cd.d.MeshFilter.m_Mesh;
-    else if(cd.cls===23){mats=cd.d.MeshRenderer.m_Materials||[];if(cd.d.MeshRenderer.m_Enabled===0)on=false}
-    else if(cd.cls===137){meshRef=cd.d.SkinnedMeshRenderer.m_Mesh;mats=cd.d.SkinnedMeshRenderer.m_Materials||[]}}
-   if(on&&meshRef&&fid(meshRef)!=="0"){
-    const src=await getMesh(meshRef,go.m_Name||"",path);
-    if(src){const isArr=Array.isArray(src.mat),n=isArr?src.mat.length:1,um=mats.map(matFromUnity),out=[];
-     for(let i=0;i<n;i++)out.push(um[i]||lamb(isArr?src.mat[i]:src.mat)||grey());
-     entries.push({geo:src.geo,mat:n>1&&src.geo.groups.length?out:out[0],matrix:world})}
-    else warn.push(stem(path)+": mesh for '"+(go.m_Name||"?")+"' not found (select the .meta + model files too)")}
-   for(const ch of tr.m_Children||[])await walk(fid(ch),world,false)}
-  await walk(rootDoc.id,new G.Matrix4().makeScale(scale,scale,scale),true);
-  if(!entries.length)throw new Error("no meshes resolved");
-  return flatten(entries)}
-
- async function standalone(p){const{meshes}=await loadModel(p),S0=new G.Matrix4().makeScale(scale,scale,scale);
-  return flatten(meshes.map(m=>({geo:m.geometry,mat:lambAny(m.material),matrix:S0.clone().multiply(m.matrixWorld)})))}
-
- for(const p of paths.filter(p=>ext(p)==="prefab")){
-  try{register(stem(p),await buildPrefab(p));done.push(stem(p))}catch(e){warn.push(stem(p)+": "+e.message)}}
- for(const p of modelPaths.filter(p=>!used.has(p)&&!imported.includes(stem(p)))){
-  try{register(stem(p),await standalone(p));done.push(stem(p))}catch(e){warn.push(stem(p)+": "+e.message)}}
-
- bcache.clear();renderPalette();
- if(fresh&&done.length){otype=done[0];mode="place";setGhost()}
- paint();
- stat((done.length?"Imported "+done.length+": "+done.join(", "):"Nothing imported")+(warn.length?" | ⚠ "+warn.join("; "):""));
- if(!paths.some(p=>ext(p)==="meta")&&paths.some(p=>ext(p)==="prefab"))stat(el("stat").textContent+" | tip: also select the .meta files so meshes/materials link correctly")}
-
-function register(name,group){const o=D[name];
- if(o&&!bak.has(name)&&!imported.includes(name))bak.set(name,o);
- D[name]={n:name,cat:o?o.cat:"Imported",s:"model",col:"#ffffff",a:1,b:1,c:1,u:o?o.u:(U0[name]||name),model:group};
- imported.push(name);delete proto[name]}
-function restore(){imported.forEach(n=>{if(bak.has(n))D[n]=bak.get(n);else delete D[n];delete proto[n]});imported=[];bak.clear();bcache.clear()}
-
-async function onFiles(list){
- if(!list||!list.length)return;stat("Reading files…");
- const arr=[];for(const f of list)arr.push([f.webkitRelativePath||f.name,await f.arrayBuffer()]);
- const all=new Map();try{await dbPut(arr);(await dbAll()).forEach((v,k)=>all.set(k,v))}catch(e){}
- arr.forEach(([k,v])=>all.set(k,v));
- stat("Building…");await processAll(all,true)}
-
-el("bPre").onclick=()=>el("fIn").click();el("bFold").onclick=()=>el("fDir").click();
-el("fIn").onchange=e=>{onFiles([...e.target.files]);e.target.value=""};
-el("fDir").onchange=e=>{onFiles([...e.target.files]);e.target.value=""};
-addEventListener("dragover",e=>e.preventDefault());
-addEventListener("drop",e=>{if(e.dataTransfer&&e.dataTransfer.files.length){e.preventDefault();onFiles([...e.dataTransfer.files])}});
-el("iscl").onchange=e=>{scale=Math.max(.001,+e.target.value||1);try{localStorage.setItem("sdevScale",scale)}catch(_){}if(lastFiles.size)processAll(lastFiles,false)};
-el("bClrImp").onclick=async()=>{if(!confirm("Remove all imported prefabs/models (and objects placed from them)?"))return;
- restore();S.objs=S.objs.filter(o=>D[o.t]);sel=null;if(!D[otype])otype="Palm_03";
- try{await dbClear()}catch(e){}lastFiles=new Map();stat("");renderPalette();setGhost();paint()};
-stat("Select .prefab + .meta + model/.mat/texture files together (or drop them here)");
-dbAll().then(m=>{if(m.size)processAll(m,false)}).catch(()=>{});
-})();
+// ===== shortcuts =====
+(()=>{const tools=["spline","place","select","terrain","tile"],kinds=Object.keys(K),acts=["move","lift","yaw","pitch","roll","bend"],tm=["raise","lower","set","smooth"];
+const setTool=k=>{const b=document.querySelector(`#tools [data-k="${k}"]`);b&&b.click()};
+addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;
+ const k=e.key;
+ if(k==="F1"||k==="?"){e.preventDefault();alert("SHORTCUTS\n1-5 tools (Spline/Place/Select/Terrain/Tile)\nWASD/Q/E camera move, RMB rotate, wheel zoom\nSpline: Enter finish, Z/Backspace undo last point, [ ] previous/next road type, C toggle closed\nSelect: M move, L lift, Y yaw, P pitch, T roll, B bend; R rotate (Shift 90°), Ctrl+D dup, Del delete, +/- scale, F focus\nTerrain: raise/lower/set/smooth = F5..F8 ; ; ' brush width -/+ : , . strength\nN rename, H reset view, X export, I import, G grid snap cycle, Esc deselect");return}
+ if(/^[1-5]$/.test(k)){setTool(tools[+k-1]);return}
+ const kl=k.toLowerCase();
+ if(mode==="spline"){if(k==="["||k==="]"){const i=kinds.indexOf(kind),n=(i+(k==="]"?1:-1)+kinds.length)%kinds.length;document.querySelector(`#kinds [data-k="${kinds[n]}"]`).click();return}
+  if(kl==="z"||k==="Backspace"){if(cur!==null){e.preventDefault();const s=S.splines[cur];s.pts.pop();if(s.pts.length<1){S.splines.splice(cur,1);cur=null}paint();return}}
+  if(kl==="c"){const s=sp()||(cur!==null?S.splines[cur]:null);if(s){s.closed=!s.closed;paint()}return}}
+ if(mode==="select"&&ob()){const m={m:"move",l:"lift",y:"yaw",p:"pitch",t:"roll",b:"bend"}[kl];if(m){document.querySelector(`#acts [data-k="${m}"]`).click();return}
+  if(k==="+"||k==="="){ob().sc=Math.min(5,ob().sc+.1);paint();return}if(k==="-"){ob().sc=Math.max(.1,ob().sc-.1);paint();return}
+  if(kl==="f"){const o=ob();flyTo(new G.Vector3(o.x,40,o.z+30),new G.Vector3(o.x,0,o.z));return}}
+ if(mode==="terrain"){const i=["F5","F6","F7","F8"].indexOf(k);if(i>=0){e.preventDefault();document.querySelector(`#tmode [data-k="${tm[i]}"]`).click();return}
+  const adj=(key,d)=>{BR[key]=Math.max(key==="w"?10:.1,+(BR[key]+d).toFixed(2));syncTer();updateBrushRing()};
+  if(k==="-")adj("w",-5);if(k==="=")adj("w",5);if(k===",")adj("s",-.5);if(k===".")adj("s",.5)}
+ if(kl==="n")$("bRen").click();if(kl==="h")home();if(kl==="x")$("bExp").click();if(kl==="i")$("bImp").click();
+ if(kl==="g"){const v=[0,1,2,5,10],i=v.indexOf(+$("snap").value);$("snap").value=v[(i+1)%v.length]}
+});})();
 </script>
 <script>
 // ===== fast rename panel =====
